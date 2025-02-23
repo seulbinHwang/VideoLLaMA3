@@ -43,7 +43,17 @@ class Videollama3Qwen2Model(Videollama3MetaModel, Qwen2Model):
 
 class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
     config_class = Videollama3Qwen2Config
+    """이걸 쓴다!!
+        model_path = "DAMO-NLP-SG/VideoLLaMA3-7B"
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2",
+        )
 
+    """
     def __init__(self, config, **kwargs):
         super(Qwen2ForCausalLM, self).__init__(config)
         self.model = Videollama3Qwen2Model(config)
