@@ -8,14 +8,17 @@ from .modeling_videollama3_encoder import Videollama3VisionEncoderModel
 from .processing_videollama3 import Videollama3Qwen2Processor
 from .image_processing_videollama3 import Videollama3ImageProcessor
 
-
-AutoConfig.register("videollama3_vision_encoder", Videollama3VisionEncoderConfig)
-AutoModel.register(Videollama3VisionEncoderConfig, Videollama3VisionEncoderModel)
-AutoImageProcessor.register(Videollama3VisionEncoderConfig, Videollama3ImageProcessor)
+AutoConfig.register("videollama3_vision_encoder",
+                    Videollama3VisionEncoderConfig)
+AutoModel.register(Videollama3VisionEncoderConfig,
+                   Videollama3VisionEncoderModel)
+AutoImageProcessor.register(Videollama3VisionEncoderConfig,
+                            Videollama3ImageProcessor)
 
 AutoConfig.register("videollama3_qwen2", Videollama3Qwen2Config)
 AutoModel.register(Videollama3Qwen2Config, Videollama3Qwen2Model)
-AutoModelForCausalLM.register(Videollama3Qwen2Config, Videollama3Qwen2ForCausalLM)
+AutoModelForCausalLM.register(Videollama3Qwen2Config,
+                              Videollama3Qwen2ForCausalLM)
 AutoProcessor.register(Videollama3Qwen2Config, Videollama3Qwen2Processor)
 
 Videollama3VisionEncoderConfig.register_for_auto_class()

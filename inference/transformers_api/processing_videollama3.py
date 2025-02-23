@@ -25,7 +25,8 @@ from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 try:
     from . import image_processing_videollama3
     from .image_processing_videollama3 import (
-        is_valid_image, is_valid_video,
+        is_valid_image,
+        is_valid_video,
     )
 except ModuleNotFoundError:
     spec = importlib.util.spec_from_file_location(
@@ -66,10 +67,12 @@ def is_named_image(image) -> bool:
 
 
 def make_batched_images(images) -> List[List[ImageInput]]:
-    if isinstance(images, (list, tuple)) and all(is_named_image(image) for image in images):
+    if isinstance(images, (list, tuple)) and all(
+            is_named_image(image) for image in images):
         # list of named images
         return [image[0] for image in images], [image[1] for image in images]
-    elif isinstance(images, (list, tuple)) and all(is_valid_image(image) or is_valid_video(image) for image in images):
+    elif isinstance(images, (list, tuple)) and all(
+            is_valid_image(image) or is_valid_video(image) for image in images):
         # list of images/videos
         batch = []
         for image in images:
@@ -93,7 +96,11 @@ def make_batched_images(images) -> List[List[ImageInput]]:
     raise ValueError(f"Could not make batched images from {images}")
 
 
-def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=None):
+def frame_sample(duration,
+                 mode='uniform',
+                 num_frames=None,
+                 vid_fps=None,
+                 fps=None):
     if mode == 'uniform':
         assert num_frames is not None, "Number of frames must be provided for uniform sampling."
         if duration <= num_frames:
@@ -114,7 +121,7 @@ def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=No
 
         # return np.round(np.array(frame_ids) + 1e-6).astype(int)
         # NOTE: v0 version
-        return np.linspace(0, duration-1, num_frames, dtype=int)
+        return np.linspace(0, duration - 1, num_frames, dtype=int)
     elif mode == 'fps':
         assert vid_fps is not None, "FPS must be provided for FPS sampling."
         assert fps is not None, "FPS must be provided for FPS sampling."
@@ -124,7 +131,12 @@ def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=No
         raise ImportError(f'Unsupported frame sampling mode: {mode}')
 
 
-def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=128, temporal_factor=1):
+def load_video_from_ids(video_path,
+                        s=None,
+                        e=None,
+                        fps=None,
+                        max_frames=128,
+                        temporal_factor=1):
     if s is not None and e is not None:
         s = s if s >= 0. else 0.
         e = e if e >= 0. else 0.
@@ -152,22 +164,37 @@ def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=128, te
         num_frames_of_video = len(vreader)
 
     # 2. Determine frame range & Calculate frame indices
-    f_start = 0                       if s is None else max(int(s * vid_fps) - 1, 0)
-    f_end   = num_frames_of_video - 1 if e is None else min(int(e * vid_fps) - 1, num_frames_of_video - 1)
+    f_start = 0 if s is None else max(int(s * vid_fps) - 1, 0)
+    f_end = num_frames_of_video - 1 if e is None else min(
+        int(e * vid_fps) - 1, num_frames_of_video - 1)
     frame_indices = list(range(f_start, f_end + 1))
 
     duration = len(frame_indices)
     # 3. Sampling frame indices
     if fps is not None and duration / vid_fps < max_frames:
-        sampled_frame_indices = [frame_indices[i] for i in frame_sample(duration, mode='fps', vid_fps=vid_fps, fps=fps)]
+        sampled_frame_indices = [
+            frame_indices[i] for i in frame_sample(
+                duration, mode='fps', vid_fps=vid_fps, fps=fps)
+        ]
     else:
-        sampled_frame_indices = [frame_indices[i] for i in frame_sample(duration, mode='uniform', num_frames=max_frames)]
+        sampled_frame_indices = [
+            frame_indices[i] for i in frame_sample(
+                duration, mode='uniform', num_frames=max_frames)
+        ]
 
     # 4. Acquire frame data
     if os.path.isdir(video_path):
-        frames = np.array([cv2.cvtColor(cv2.imread(os.path.join(video_path, frame_files[frame_idx])), cv2.COLOR_BGR2RGB) for frame_idx in sampled_frame_indices])
+        frames = np.array([
+            cv2.cvtColor(
+                cv2.imread(os.path.join(video_path, frame_files[frame_idx])),
+                cv2.COLOR_BGR2RGB) for frame_idx in sampled_frame_indices
+        ])
     elif video_path.endswith('.gif'):
-        frames = np.array([cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB) for idx, frame in enumerate(gif_reader) if idx in sampled_frame_indices])
+        frames = np.array([
+            cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+            for idx, frame in enumerate(gif_reader)
+            if idx in sampled_frame_indices
+        ])
     else:
         frames = vreader.get_batch(sampled_frame_indices).asnumpy()
 
@@ -176,7 +203,8 @@ def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=128, te
 
     if temporal_factor > 1:
         pad_length = temporal_factor - len(frames) % temporal_factor
-        frames = np.concatenate([frames, frames[-1:].repeat(pad_length, axis=0)])
+        frames = np.concatenate(
+            [frames, frames[-1:].repeat(pad_length, axis=0)])
         [timestamps.append(timestamps[-1] + 1 / fps) for _ in range(pad_length)]
 
     frames = [frame for frame in frames]
@@ -191,7 +219,9 @@ class ChatTemplateKwargs(TypedDict, total=False):
     add_generation_prompt: Optional[bool]
 
 
-class Videollama3Qwen2ProcessorKwargs(ProcessingKwargs, ChatTemplateKwargs, total=False):
+class Videollama3Qwen2ProcessorKwargs(ProcessingKwargs,
+                                      ChatTemplateKwargs,
+                                      total=False):
 
     chat_template_kwargs: ChatTemplateKwargs = {
         **ChatTemplateKwargs.__annotations__,
@@ -217,7 +247,10 @@ class Videollama3Qwen2Processor(ProcessorMixin):
     attributes = ["image_processor", "tokenizer"]
     image_processor_class = "Videollama3ImageProcessor"
     tokenizer_class = ("Qwen2Tokenizer", "Qwen2TokenizerFast")
-    valid_kwargs = ["chat_template", "image_merge_size", "video_merge_size", "fps", "max_frames"]
+    valid_kwargs = [
+        "chat_template", "image_merge_size", "video_merge_size", "fps",
+        "max_frames"
+    ]
 
     def __init__(
         self,
@@ -241,18 +274,23 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         self.max_frames = max_frames
 
         self.generation_prompt = self._infer_generation_prompt()
-        self.generation_prompt_ids = self.tokenizer.encode(self.generation_prompt, return_tensors="pt")
+        self.generation_prompt_ids = self.tokenizer.encode(
+            self.generation_prompt, return_tensors="pt")
         self.generation_prompt_length = len(self.generation_prompt_ids[0])
-        self.image_token_id = self.tokenizer.convert_tokens_to_ids(DEFAULT_IMAGE_TOKEN)
+        self.image_token_id = self.tokenizer.convert_tokens_to_ids(
+            DEFAULT_IMAGE_TOKEN)
         self.eos_token_id = self.tokenizer.eos_token_id
 
     @classmethod
-    def _get_arguments_from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
+    def _get_arguments_from_pretrained(cls, pretrained_model_name_or_path,
+                                       **kwargs):
         args = []
         for attribute_name in cls.attributes:
             class_name = getattr(cls, f"{attribute_name}_class")
             if isinstance(class_name, tuple):
-                classes = tuple(_custom_import(n) if n is not None else None for n in class_name)
+                classes = tuple(
+                    _custom_import(n) if n is not None else None
+                    for n in class_name)
                 use_fast = kwargs.get("use_fast", True)
                 if use_fast and classes[1] is not None:
                     attribute_class = classes[1]
@@ -261,7 +299,9 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             else:
                 attribute_class = _custom_import(class_name)
 
-            args.append(attribute_class.from_pretrained(pretrained_model_name_or_path, **kwargs))
+            args.append(
+                attribute_class.from_pretrained(pretrained_model_name_or_path,
+                                                **kwargs))
         return args
 
     def get_generation_prompt(self):
@@ -272,15 +312,22 @@ class Videollama3Qwen2Processor(ProcessorMixin):
 
     def _infer_generation_prompt(self):
         pseudo_message = [{"role": "user", "content": ""}]
-        instruction = self.apply_chat_template(pseudo_message, tokenize=False, add_generation_prompt=True)
-        conversation = self.apply_chat_template(pseudo_message, tokenize=False, add_generation_prompt=False)
+        instruction = self.apply_chat_template(pseudo_message,
+                                               tokenize=False,
+                                               add_generation_prompt=True)
+        conversation = self.apply_chat_template(pseudo_message,
+                                                tokenize=False,
+                                                add_generation_prompt=False)
         return instruction.replace(conversation, "")
 
     def _get_downsampled_grid_sizes(self, image_inputs: Dict[str, Any]):
         grid_sizes = []
-        for grid_size, merge_size in zip(image_inputs.get("grid_sizes", []), image_inputs.get("merge_sizes", [])):
+        for grid_size, merge_size in zip(image_inputs.get("grid_sizes", []),
+                                         image_inputs.get("merge_sizes", [])):
             if not torch.all(grid_size[1:] % merge_size == 0):
-                warnings.warn(f"Grid size {grid_size} is not divisible by merge size. Some undesired errors may occur.")
+                warnings.warn(
+                    f"Grid size {grid_size} is not divisible by merge size. Some undesired errors may occur."
+                )
             if grid_size[0] == 1:
                 grid_sizes.append(grid_size[1:] / merge_size)
             elif grid_size[0] > 1:
@@ -291,17 +338,22 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         num_tokens = int(grid_size.prod().item())
         return num_tokens
 
-    def load_images(self, image_path: Union[str, List[str], Image.Image, List[Image.Image]]):
+    def load_images(self, image_path: Union[str, List[str], Image.Image,
+                                            List[Image.Image]]):
         if isinstance(image_path, str) and os.path.isfile(image_path):
             # images = [cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)]
             images = [Image.open(image_path).convert('RGB')]
         elif isinstance(image_path, str) and os.path.isdir(image_path):
             # images = [cv2.cvtColor(cv2.imread(os.path.join(image_path, f)), cv2.COLOR_BGR2RGB) for f in sorted(os.listdir(image_path))]
-            images = [Image.open(os.path.join(image_path, f)).convert('RGB') for f in sorted(os.listdir(image_path))]
+            images = [
+                Image.open(os.path.join(image_path, f)).convert('RGB')
+                for f in sorted(os.listdir(image_path))
+            ]
         elif isinstance(image_path, list) and isinstance(image_path[0], str):
             # images = [cv2.cvtColor(cv2.imread(f), cv2.COLOR_BGR2RGB) for f in image_path]
             images = [Image.open(f).convert('RGB') for f in image_path]
-        elif isinstance(image_path, list) and isinstance(image_path[0], Image.Image):
+        elif isinstance(image_path, list) and isinstance(
+                image_path[0], Image.Image):
             images = [np.array(x) for x in image_path]
         elif isinstance(image_path, Image.Image):
             images = [np.array(image_path)]
@@ -309,19 +361,17 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             raise ValueError(f"Unsupported image path type: {type(image_path)}")
         return images
 
-    def load_video(
-        self,
-        video_path: str,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None,
-        fps: Optional[float] = None,
-        max_frames: Optional[float] = None,
-        size: Optional[int] = None,
-        size_divisible: int = 1,
-        precise_time: bool = False,
-        verbose: bool = False,
-        temporal_factor: int = 1
-    ):
+    def load_video(self,
+                   video_path: str,
+                   start_time: Optional[float] = None,
+                   end_time: Optional[float] = None,
+                   fps: Optional[float] = None,
+                   max_frames: Optional[float] = None,
+                   size: Optional[int] = None,
+                   size_divisible: int = 1,
+                   precise_time: bool = False,
+                   verbose: bool = False,
+                   temporal_factor: int = 1):
         """
         Load and process a video file and return the frames and the timestamps of each frame.
 
@@ -344,14 +394,27 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         max_frames = self.max_frames if max_frames is None else max_frames
 
         if start_time is not None and end_time is not None and end_time - start_time < 1:
-            return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+            return load_video_from_ids(video_path,
+                                       start_time,
+                                       end_time,
+                                       fps=fps,
+                                       max_frames=max_frames)
         if os.path.isdir(video_path):
-            return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+            return load_video_from_ids(video_path,
+                                       start_time,
+                                       end_time,
+                                       fps=fps,
+                                       max_frames=max_frames)
         if video_path.endswith('.gif'):
-            return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+            return load_video_from_ids(video_path,
+                                       start_time,
+                                       end_time,
+                                       fps=fps,
+                                       max_frames=max_frames)
         probe = ffmpeg.probe(video_path)
         duration = float(probe['format']['duration'])
-        video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+        video_stream = next((stream for stream in probe['streams']
+                             if stream['codec_type'] == 'video'), None)
         w, h = int(video_stream['width']), int(video_stream['height'])
 
         kwargs, input_kwargs, output_kwargs = {}, {}, {}
@@ -391,15 +454,23 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             stream = ffmpeg.filter(stream, "fps", fps=fps, round="down")
         if new_w != w or new_h != h:
             stream = ffmpeg.filter(stream, 'scale', new_w, new_h)
-        stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt="rgb24", **output_kwargs)
+        stream = ffmpeg.output(stream,
+                               "pipe:",
+                               format="rawvideo",
+                               pix_fmt="rgb24",
+                               **output_kwargs)
         out, _ = ffmpeg.run(stream, capture_stdout=True, quiet=not verbose)
 
-        frames = np.frombuffer(out, np.uint8).reshape([-1, new_h, new_w, 3]).transpose([0, 3, 1, 2])
+        frames = np.frombuffer(out,
+                               np.uint8).reshape([-1, new_h, new_w,
+                                                  3]).transpose([0, 3, 1, 2])
 
         if fps is not None:
-            timestamps = np.arange(start_time, start_time + duration + 1 / fps, 1 / fps)[:len(frames)]
+            timestamps = np.arange(start_time, start_time + duration + 1 / fps,
+                                   1 / fps)[:len(frames)]
         else:
-            timestamps = np.linspace(start_time, start_time + duration, len(frames))
+            timestamps = np.linspace(start_time, start_time + duration,
+                                     len(frames))
 
         if max_frames is not None and len(frames) > max_frames:
             indices = np.linspace(0, len(frames) - 1, max_frames, dtype=int)
@@ -408,8 +479,12 @@ class Videollama3Qwen2Processor(ProcessorMixin):
 
         if temporal_factor > 1:
             pad_length = temporal_factor - len(frames) % temporal_factor
-            frames = np.concatenate([frames, frames[-1:].repeat(pad_length, axis=0)])
-            timestamps = np.concatenate([timestamps, timestamps[-1:].repeat(pad_length) + np.arange(1, pad_length + 1) / fps])
+            frames = np.concatenate(
+                [frames, frames[-1:].repeat(pad_length, axis=0)])
+            timestamps = np.concatenate([
+                timestamps, timestamps[-1:].repeat(pad_length) +
+                np.arange(1, pad_length + 1) / fps
+            ])
 
         frames = [frame for frame in frames]
         timestamps = [timestamp for timestamp in timestamps]
@@ -432,10 +507,17 @@ class Videollama3Qwen2Processor(ProcessorMixin):
                     new_contents.append(content)
                     continue
                 assert "type" in content, "Content must have 'type' field."
-                if content["type"] in ["image", "video"] and content["type"] in content and isinstance(content[content["type"]], dict):
+                if content["type"] in [
+                        "image", "video"
+                ] and content["type"] in content and isinstance(
+                        content[content["type"]], dict):
                     # TODO: support other types which are not compatible with json
                     load_args = content[content["type"]]
-                    data_id = json.dumps({k: v for k, v in load_args.items() if not k in ["start_time", "end_time"]})
+                    data_id = json.dumps({
+                        k: v
+                        for k, v in load_args.items()
+                        if not k in ["start_time", "end_time"]
+                    })
                     new_content = copy.deepcopy(content)
                     multimodal_info[data_id].append(new_content)
                     new_contents.append(new_content)
@@ -448,14 +530,21 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         for data_id, contents in multimodal_info.items():
             data_type = contents[0]["type"]
             if data_type == "image":
-                image = self.load_images(contents[0][data_type]["image_path"])[0]
+                image = self.load_images(
+                    contents[0][data_type]["image_path"])[0]
                 for content in contents:
                     content["image"] = [image.copy()]
 
             elif data_type == "video":
                 # TODO: start_time is None?
-                start_times = [content["video"].get("start_time", 0.) for content in contents]
-                end_times = [content["video"].get("end_time", float("inf")) for content in contents]
+                start_times = [
+                    content["video"].get("start_time", 0.)
+                    for content in contents
+                ]
+                end_times = [
+                    content["video"].get("end_time", float("inf"))
+                    for content in contents
+                ]
 
                 load_args = contents[0][data_type]
                 start_time, end_time = min(start_times), max(end_times)
@@ -465,7 +554,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
                     load_args["end_time"] = end_time
                 images, timestamps = self.load_video(**load_args)
 
-                for content, start_time, end_time in zip(contents, start_times, end_times):
+                for content, start_time, end_time in zip(
+                        contents, start_times, end_times):
                     cur_images, cur_timestamps = [], []
                     for image, timestamp in zip(images, timestamps):
                         if start_time <= timestamp <= end_time:
@@ -488,7 +578,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
                     continue
                 if content["type"] == "video":
                     video = content["video"]
-                    assert is_valid_video(video), f"Invalid video data: {video}."
+                    assert is_valid_video(
+                        video), f"Invalid video data: {video}."
                     images.append(("video", video))
                 if content["type"] == "image":
                     image = content["image"]
@@ -502,7 +593,9 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         image_inputs: Dict[str, Any],
         **kwargs,
     ):
-        assert kwargs.pop("return_tensors", "pt") == "pt", "Only PyTorch tensors are supported when return_labels=True."
+        assert kwargs.pop(
+            "return_tensors", "pt"
+        ) == "pt", "Only PyTorch tensors are supported when return_labels=True."
         assert not "add_generation_prompt" in kwargs, "'add_generation_prompt' argument is not supported when return_labels=True."
 
         output_kwargs = self._merge_kwargs(
@@ -535,13 +628,16 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             prompt = "".join(prompt)
 
             # TODO: support attention_mask, position_ids, etc.
-            input_ids = self.tokenizer.encode(prompt, return_tensors="pt", **output_kwargs["text_kwargs"])[0]
+            input_ids = self.tokenizer.encode(prompt,
+                                              return_tensors="pt",
+                                              **output_kwargs["text_kwargs"])[0]
             text_inputs["input_ids"].append(input_ids)
 
             targets = torch.full_like(input_ids, IGNORE_INDEX)
             sample_types = torch.full_like(input_ids, IGNORE_INDEX)
             if message["role"] == "assistant":
-                targets[self.generation_prompt_length:-1] = input_ids[self.generation_prompt_length:-1].clone()
+                targets[self.generation_prompt_length:-1] = input_ids[
+                    self.generation_prompt_length:-1].clone()
             # elif message["role"] == "stream":
             #     diff = torch.diff((input_ids == self.image_token_id).float())
             #     image_end_indices = torch.nonzero(diff < 0)[:, 0]
@@ -550,7 +646,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             #     sample_types[torch.logical_and(sample_types > 0, sample_types != self.eos_token_id)] = 0
             #     targets[-2] = input_ids[-2]    # <|im_end|>
 
-            if message_idx > 0 and conversation[message_idx - 1]["role"] == "stream":
+            if message_idx > 0 and conversation[message_idx -
+                                                1]["role"] == "stream":
                 targets[0] = input_ids[0]
                 # TODO: consider non-special tokens
                 sample_types[0] = input_ids[0]
@@ -561,18 +658,23 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         # Negative sampling for streaming data
         text_inputs = {k: torch.cat(v) for k, v in text_inputs.items()}
         sample_types = torch.cat(sample_types_list)
-        types, counts = torch.unique(sample_types[sample_types > -1], return_counts=True)
+        types, counts = torch.unique(sample_types[sample_types > -1],
+                                     return_counts=True)
 
         if len(types) > 0:
             target_num_samples = counts.amin()
             for type_id, type_count in zip(types, counts):
                 if type_count > target_num_samples:
                     indices = torch.nonzero(sample_types == type_id)[:, 0]
-                    random_selector = torch.randperm(indices.size(0))[:-target_num_samples]
-                    text_inputs["labels"][indices[random_selector]] = IGNORE_INDEX
+                    random_selector = torch.randperm(
+                        indices.size(0))[:-target_num_samples]
+                    text_inputs["labels"][
+                        indices[random_selector]] = IGNORE_INDEX
                     # sample_types[indices[random_selector]] = -1
 
-        assert len(grid_sizes) == image_idx, "Number of images does not match the number of image tokens in the text."
+        assert len(
+            grid_sizes
+        ) == image_idx, "Number of images does not match the number of image tokens in the text."
 
         return text_inputs
 
@@ -592,7 +694,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             tokenize=False,
             **output_kwargs["chat_template_kwargs"],
         )
-        return self.process_text(prompt, image_inputs, **output_kwargs["text_kwargs"])
+        return self.process_text(prompt, image_inputs,
+                                 **output_kwargs["text_kwargs"])
 
     def _process_conversation(
         self,
@@ -601,7 +704,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         return_labels: bool = False,
         **kwargs: Unpack[Videollama3Qwen2ProcessorKwargs],
     ) -> BatchFeature:
-        assert isinstance(conversation, list), "Conversation must be a list of messages."
+        assert isinstance(conversation,
+                          list), "Conversation must be a list of messages."
 
         if images is None:
             conversation = self._load_multimodal_data(conversation)
@@ -614,14 +718,17 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         )
 
         if images is not None:
-            image_inputs = self.process_images(images, **output_kwargs["images_kwargs"])
+            image_inputs = self.process_images(images,
+                                               **output_kwargs["images_kwargs"])
         else:
             image_inputs = {}
 
         if return_labels:
-            text_inputs = self._process_conversation_with_label(conversation, image_inputs, **kwargs)
+            text_inputs = self._process_conversation_with_label(
+                conversation, image_inputs, **kwargs)
         else:
-            text_inputs = self._process_conversation_without_label(conversation, image_inputs, **kwargs)
+            text_inputs = self._process_conversation_without_label(
+                conversation, image_inputs, **kwargs)
 
         return BatchFeature(data={**text_inputs, **image_inputs})
 
@@ -635,7 +742,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         if text is None:
             raise ValueError("You must provide 'text' or 'message'.")
         if return_labels:
-            raise ValueError("return_labels is not supported for plain text processing.")
+            raise ValueError(
+                "return_labels is not supported for plain text processing.")
 
         output_kwargs = self._merge_kwargs(
             Videollama3Qwen2ProcessorKwargs,
@@ -644,19 +752,23 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         )
 
         if images is not None:
-            image_inputs = self.process_images(images, **output_kwargs["images_kwargs"])
+            image_inputs = self.process_images(images,
+                                               **output_kwargs["images_kwargs"])
         else:
             image_inputs = {}
 
-        text_inputs = self.process_text(text, image_inputs, **output_kwargs["text_kwargs"])
+        text_inputs = self.process_text(text, image_inputs,
+                                        **output_kwargs["text_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})
 
-    def process_images(self, images: Union[BatchedImage, BatchedNamedImage], **kwargs):
+    def process_images(self, images: Union[BatchedImage, BatchedNamedImage],
+                       **kwargs):
         modals, images = make_batched_images(images)
         if not "merge_size" in kwargs:
             kwargs["merge_size"] = [
-                self.image_merge_size if modal == "image" else self.video_merge_size
+                self.image_merge_size
+                if modal == "image" else self.video_merge_size
                 for modal in modals
             ]
         image_inputs = self.image_processor(images=images, **kwargs)
@@ -677,11 +789,14 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         image_idx = 0
         while DEFAULT_IMAGE_TOKEN in text:
             num_tokens = self._get_visual_seq_len(grid_sizes[image_idx])
-            text = text.replace(DEFAULT_IMAGE_TOKEN, "<placeholder>" * num_tokens, 1)
+            text = text.replace(DEFAULT_IMAGE_TOKEN,
+                                "<placeholder>" * num_tokens, 1)
             image_idx += 1
         text = text.replace("<placeholder>", DEFAULT_IMAGE_TOKEN)
- 
-        assert len(grid_sizes) == image_idx, "Number of images does not match the number of image tokens in the text."
+
+        assert len(
+            grid_sizes
+        ) == image_idx, "Number of images does not match the number of image tokens in the text."
 
         text_inputs = self.tokenizer(text, **kwargs)
         return text_inputs
@@ -697,7 +812,8 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         if conversation is not None:
             if text is not None:
                 raise ValueError("You cannot provide 'message' with 'text'.")
-            return self._process_conversation(conversation, images, return_labels, **kwargs)
+            return self._process_conversation(conversation, images,
+                                              return_labels, **kwargs)
         return self._process_plain(text, images, return_labels, **kwargs)
 
     def batch_decode(self, *args, **kwargs):
@@ -754,14 +870,15 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             add_system_prompt=add_system_prompt,
             add_generation_prompt=add_generation_prompt,
             image_token=image_token,
-            **kwargs
-        )
+            **kwargs)
 
     @property
     def model_input_names(self):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
-        return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names)) + ["modals"]
+        return list(
+            dict.fromkeys(tokenizer_input_names +
+                          image_processor_input_names)) + ["modals"]
 
     # modified from transformers.ProcessorMixin
     def _merge_kwargs(
@@ -832,16 +949,16 @@ class Videollama3Qwen2Processor(ProcessorMixin):
 
         # get defaults from set model processor kwargs if they exist
         for modality in default_kwargs:
-            default_kwargs[modality] = ModelProcessorKwargs._defaults.get(modality, {}).copy()
+            default_kwargs[modality] = ModelProcessorKwargs._defaults.get(
+                modality, {}).copy()
             # update defaults with arguments from tokenizer init
-            for modality_key in ModelProcessorKwargs.__annotations__[modality].__annotations__.keys():
+            for modality_key in ModelProcessorKwargs.__annotations__[
+                    modality].__annotations__.keys():
                 # init with tokenizer init kwargs if necessary
                 if modality_key in tokenizer_init_kwargs:
-                    value = (
-                        getattr(self.tokenizer, modality_key)
-                        if hasattr(self.tokenizer, modality_key)
-                        else tokenizer_init_kwargs[modality_key]
-                    )
+                    value = (getattr(self.tokenizer, modality_key) if hasattr(
+                        self.tokenizer, modality_key) else
+                             tokenizer_init_kwargs[modality_key])
                     default_kwargs[modality][modality_key] = value
         # now defaults kwargs are updated with the tokenizers defaults.
         # pass defaults to output dictionary
@@ -850,16 +967,17 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         # update modality kwargs with passed kwargs
         non_modality_kwargs = set(kwargs) - set(output_kwargs)
         for modality in output_kwargs:
-            for modality_key in ModelProcessorKwargs.__annotations__[modality].__annotations__.keys():
+            for modality_key in ModelProcessorKwargs.__annotations__[
+                    modality].__annotations__.keys():
                 # check if we received a structured kwarg dict or not to handle it correctly
                 if modality in kwargs:
-                    kwarg_value = kwargs[modality].pop(modality_key, "__empty__")
+                    kwarg_value = kwargs[modality].pop(modality_key,
+                                                       "__empty__")
                     # check if this key was passed as a flat kwarg.
                     if kwarg_value != "__empty__" and modality_key in non_modality_kwargs:
                         raise ValueError(
                             f"Keyword argument {modality_key} was passed two times:\n"
-                            f"in a dictionary for {modality} and as a **kwarg."
-                        )
+                            f"in a dictionary for {modality} and as a **kwarg.")
                 elif modality_key in kwargs:
                     # we get a modality_key instead of popping it because modality-specific processors
                     # can have overlapping kwargs

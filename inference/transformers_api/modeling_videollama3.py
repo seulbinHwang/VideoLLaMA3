@@ -72,7 +72,9 @@ class MlpGeluProjector(nn.Module):
         mlp_gelu_match = re.match(r"^mlp(\d+)x_gelu$", projector_type)
         mlp_depth = int(mlp_gelu_match.group(1))
 
-        self.readout = build_mlp(mlp_depth, config.vision_encoder_config.hidden_size, config.hidden_size)
+        self.readout = build_mlp(mlp_depth,
+                                 config.vision_encoder_config.hidden_size,
+                                 config.hidden_size)
 
     def forward(self, x):
         x = self.readout(x)
@@ -150,7 +152,10 @@ class Videollama3MetaForCausalLM(ABC):
     ):
         valid_masks = []
         for num_patches, modal in zip(batched_num_patches, modals):
-            valid_mask = torch.full((num_patches, ), modal != "text", dtype=torch.bool, device=mm_features.device)
+            valid_mask = torch.full((num_patches,),
+                                    modal != "text",
+                                    dtype=torch.bool,
+                                    device=mm_features.device)
             valid_masks.append(valid_mask)
         mm_features = mm_features[torch.cat(valid_masks)]
         return mm_features
@@ -164,18 +169,25 @@ class Videollama3MetaForCausalLM(ABC):
         input_ids: torch.LongTensor,
         position_ids: Optional[torch.LongTensor] = None,
     ):
-        if position_ids is None or mm_features.shape[0] == input_ids.eq(self.config.image_token_index).sum():
+        if position_ids is None or mm_features.shape[0] == input_ids.eq(
+                self.config.image_token_index).sum():
             return mm_features, compression_mask
 
         truncation_mask = []
         for num_patches, modal in zip(batched_num_patches, modals):
             if modal == "text":
-                truncation_mask.append(torch.ones((0,), dtype=torch.bool, device=input_ids.device))
+                truncation_mask.append(
+                    torch.ones((0,), dtype=torch.bool, device=input_ids.device))
             else:
-                truncation_mask.append(torch.ones((num_patches,), dtype=torch.bool, device=input_ids.device))
+                truncation_mask.append(
+                    torch.ones((num_patches,),
+                               dtype=torch.bool,
+                               device=input_ids.device))
 
         seq_end_indices = torch.nonzero(position_ids == 0)[:, 0]
-        seq_end_indices = seq_end_indices[seq_end_indices > 0].tolist()+ [len(input_ids)]
+        seq_end_indices = seq_end_indices[seq_end_indices > 0].tolist() + [
+            len(input_ids)
+        ]
         seq_start_indices = [0] + seq_end_indices[:-1]
         num_visual_tokens = [
             input_ids[start:end].eq(self.config.image_token_index).sum()
@@ -199,23 +211,31 @@ class Videollama3MetaForCausalLM(ABC):
         threshold: float = 0.1,
         min_tokens: int = 1,
     ) -> torch.BoolTensor:
-        batched_images = pixel_values.split(grid_sizes.prod(dim=1).tolist(), dim=0)
+        batched_images = pixel_values.split(grid_sizes.prod(dim=1).tolist(),
+                                            dim=0)
         compression_masks = []
 
         for images, num_patches, grid_size, merge_size, modal in zip(
-            batched_images, batched_num_patches, grid_sizes, merge_sizes, modals
-        ):
+                batched_images, batched_num_patches, grid_sizes, merge_sizes,
+                modals):
             t, h, w = grid_size
             if modal == "image" or (modal == "video" and t == 1):
-                compression_masks.append(torch.ones((num_patches,), dtype=torch.bool, device=images.device))
+                compression_masks.append(
+                    torch.ones((num_patches,),
+                               dtype=torch.bool,
+                               device=images.device))
 
             elif modal == "video":
                 # NOTE: video token compressor
-                images = images.view(t, (h // merge_size) * (w // merge_size), -1)
+                images = images.view(t, (h // merge_size) * (w // merge_size),
+                                     -1)
 
                 pixel_diff = images[1:] - images[:-1]
                 pixel_diff = torch.abs(pixel_diff).mean(dim=-1) * 255
-                pixel_diff = torch.cat([torch.full_like(pixel_diff[0:1], threshold + 1), pixel_diff], dim=0)
+                pixel_diff = torch.cat([
+                    torch.full_like(pixel_diff[0:1], threshold + 1), pixel_diff
+                ],
+                                       dim=0)
                 mask = pixel_diff > threshold
                 padding_ids = torch.nonzero(mask.sum(dim=1) < min_tokens)[:, 0]
                 # mask[padding_ids, torch.randperm(min_tokens)] = 1
@@ -224,7 +244,8 @@ class Videollama3MetaForCausalLM(ABC):
 
             else:
                 # in case of psuedo image
-                compression_masks.append(torch.ones((0,), dtype=torch.bool, device=images.device))
+                compression_masks.append(
+                    torch.ones((0,), dtype=torch.bool, device=images.device))
 
         return torch.cat(compression_masks)
 
@@ -253,7 +274,10 @@ class Videollama3MetaForCausalLM(ABC):
             position_ids = position_ids[text_masks]
             pos_start = [0] + torch.nonzero(position_ids == 0)[:, 0].tolist()
             pos_end = pos_start[1:] + [len(input_ids)]
-            position_ids = torch.cat([torch.arange(end - start, device=input_ids.device) for start, end in zip(pos_start, pos_end)])
+            position_ids = torch.cat([
+                torch.arange(end - start, device=input_ids.device)
+                for start, end in zip(pos_start, pos_end)
+            ])
 
         return mm_features, input_ids, attention_mask, position_ids, labels
 
@@ -271,7 +295,8 @@ class Videollama3MetaForCausalLM(ABC):
     ):
         vision_encoder = self.get_vision_encoder()
         # NOTE: text-only situation
-        if vision_encoder is None or pixel_values is None or input_ids.shape[1] == 1:
+        if vision_encoder is None or pixel_values is None or input_ids.shape[
+                1] == 1:
             return input_ids, attention_mask, position_ids, past_key_values, None, labels
 
         # 1. flatten text inputs
@@ -285,30 +310,33 @@ class Videollama3MetaForCausalLM(ABC):
             labels = labels.view(B * N)
 
         # 2. embed visual tokens
-        batched_num_patches = grid_sizes.prod(dim=1).div(merge_sizes ** 2).long()
+        batched_num_patches = grid_sizes.prod(dim=1).div(merge_sizes**2).long()
         mm_features = self.encode_images(pixel_values, grid_sizes, merge_sizes)
-        mm_features = self._get_valid_visual_tokens(mm_features, batched_num_patches, modals)
+        mm_features = self._get_valid_visual_tokens(mm_features,
+                                                    batched_num_patches, modals)
 
-        compression_mask = self._get_compression_mask(
-            pixel_values, batched_num_patches, grid_sizes, merge_sizes, modals
-        )
+        compression_mask = self._get_compression_mask(pixel_values,
+                                                      batched_num_patches,
+                                                      grid_sizes, merge_sizes,
+                                                      modals)
         mm_features, compression_mask = self._maybe_truncate_visual_tokens(
-            mm_features, compression_mask, batched_num_patches, modals, input_ids, position_ids
-        )
+            mm_features, compression_mask, batched_num_patches, modals,
+            input_ids, position_ids)
 
         # 3. compress visual tokens
         if self.config.use_token_compression:
             assert B == 1, "Token compression is only supported for batch_size=1"
             mm_features, input_ids, attention_mask, labels, position_ids = self._compress_visual_tokens(
-                compression_mask, mm_features, input_ids, attention_mask, labels, position_ids
-            )
+                compression_mask, mm_features, input_ids, attention_mask,
+                labels, position_ids)
 
         # 4. embed text tokens
         inputs_embeds = self.get_model().embed_tokens(input_ids).clone()
 
         # 5. replace multimodal tokens with features
         image_selected = (input_ids == self.config.image_token_index)
-        inputs_embeds[image_selected] = inputs_embeds[image_selected] * 0.0 + mm_features   
+        inputs_embeds[
+            image_selected] = inputs_embeds[image_selected] * 0.0 + mm_features
 
         # 6. reshape back to batched format
         C = inputs_embeds.shape[-1]
@@ -331,7 +359,9 @@ class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
         super(Qwen2ForCausalLM, self).__init__(config)
         self.model = Videollama3Qwen2Model(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.hidden_size,
+                                 config.vocab_size,
+                                 bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -437,18 +467,22 @@ class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
         else:
             inputs_embeds = self.get_model().embed_tokens(input_ids)
 
-        return super().generate(
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
-            **kwargs
-        )
+        return super().generate(position_ids=position_ids,
+                                attention_mask=attention_mask,
+                                inputs_embeds=inputs_embeds,
+                                **kwargs)
 
-    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, inputs_embeds=None, **kwargs):
+    def prepare_inputs_for_generation(self,
+                                      input_ids,
+                                      past_key_values=None,
+                                      inputs_embeds=None,
+                                      **kwargs):
         images = kwargs.pop("images", None)
         _inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
-        )
+            input_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            **kwargs)
         if images is not None:
             _inputs['images'] = images
         return _inputs

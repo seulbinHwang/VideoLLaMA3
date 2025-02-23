@@ -34,8 +34,10 @@ except ModuleNotFoundError:
         "Videollama3VisionEncoderModel",
     )
 
-AutoConfig.register("videollama3_vision_encoder", Videollama3VisionEncoderConfig)
-AutoModel.register(Videollama3VisionEncoderConfig, Videollama3VisionEncoderModel)
+AutoConfig.register("videollama3_vision_encoder",
+                    Videollama3VisionEncoderConfig)
+AutoModel.register(Videollama3VisionEncoderConfig,
+                   Videollama3VisionEncoderModel)
 
 
 class Videollama3Qwen2Config(Qwen2Config):
@@ -56,8 +58,10 @@ class Videollama3Qwen2Config(Qwen2Config):
         self.model_type = "videollama3_qwen2"
 
         self.vision_encoder = vision_encoder
-        if vision_encoder_config is not None and not isinstance(vision_encoder_config, PretrainedConfig):
-            vision_encoder_config = Videollama3VisionEncoderConfig(**vision_encoder_config)
+        if vision_encoder_config is not None and not isinstance(
+                vision_encoder_config, PretrainedConfig):
+            vision_encoder_config = Videollama3VisionEncoderConfig(
+                **vision_encoder_config)
         self.vision_encoder_config = vision_encoder_config
 
         self.mm_projector_type = mm_projector_type

@@ -91,9 +91,11 @@ def _trunc_normal_(tensor, mean, std, a, b):
     tensor.clamp_(min=a, max=b)
 
 
-def trunc_normal_tf_(
-    tensor: torch.Tensor, mean: float = 0.0, std: float = 1.0, a: float = -2.0, b: float = 2.0
-) -> torch.Tensor:
+def trunc_normal_tf_(tensor: torch.Tensor,
+                     mean: float = 0.0,
+                     std: float = 1.0,
+                     a: float = -2.0,
+                     b: float = 2.0) -> torch.Tensor:
     """Fills the input Tensor with values drawn from a truncated
     normal distribution. The values are effectively drawn from the
     normal distribution :math:`\\mathcal{N}(\text{mean}, \text{std}^2)`
@@ -153,12 +155,13 @@ def default_flax_embed_init(tensor):
 # Copied from transformers.models.llama.modeling_llama.rotate_half
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
+    x1 = x[..., :x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2:]
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_pos_emb_vision(tensor: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
+def apply_rotary_pos_emb_vision(tensor: torch.Tensor,
+                                freqs: torch.Tensor) -> torch.Tensor:
     orig_dtype = tensor.dtype
     tensor = tensor.float()
     cos = freqs.cos()
@@ -174,14 +177,17 @@ class VisionRotaryEmbedding(nn.Module):
 
     def __init__(self, dim: int, theta: float = 10000.0) -> None:
         super().__init__()
-        inv_freq = 1.0 / (theta ** (torch.arange(0, dim, 2, dtype=torch.float) / dim))
+        inv_freq = 1.0 / (theta
+                          **(torch.arange(0, dim, 2, dtype=torch.float) / dim))
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
     def forward(self, seqlen: int) -> torch.Tensor:
-        seq = torch.arange(seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
+        seq = torch.arange(seqlen,
+                           device=self.inv_freq.device,
+                           dtype=self.inv_freq.dtype)
         freqs = torch.outer(seq, self.inv_freq)
         return freqs
-    
+
 
 class Videollama3VisionEmbeddings(nn.Module):
 
@@ -200,10 +206,10 @@ class Videollama3VisionEmbeddings(nn.Module):
         )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = hidden_states.view(
-            -1, self.config.num_channels, self.patch_size, self.patch_size
-        )
-        patch_embeds = self.patch_embedding(hidden_states)  # shape = [*, width, grid, grid]
+        hidden_states = hidden_states.view(-1, self.config.num_channels,
+                                           self.patch_size, self.patch_size)
+        patch_embeds = self.patch_embedding(
+            hidden_states)  # shape = [*, width, grid, grid]
         # embeddings = patch_embeds.flatten(2).transpose(1, 2)
         embeddings = patch_embeds.view(-1, self.embed_dim)
 
@@ -223,8 +229,7 @@ class VisionAttention(nn.Module):
         if self.head_dim * self.num_heads != self.embed_dim:
             raise ValueError(
                 f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_heads})."
-            )
+                f" {self.num_heads}).")
         self.scale = self.head_dim**-0.5
         self.dropout = config.attention_dropout
 
@@ -251,23 +256,34 @@ class VisionAttention(nn.Module):
         key_states = key_states.view(q_len, self.num_heads, self.head_dim)
         value_states = value_states.view(q_len, self.num_heads, self.head_dim)
 
-        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
-        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
+        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0),
+                                                   rotary_pos_emb).squeeze(0)
+        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0),
+                                                 rotary_pos_emb).squeeze(0)
 
-        attention_mask = torch.zeros([1, q_len, q_len], device=query_states.device, dtype=torch.bool)
+        attention_mask = torch.zeros([1, q_len, q_len],
+                                     device=query_states.device,
+                                     dtype=torch.bool)
         for i in range(1, len(cu_seqlens)):
-            attention_mask[..., cu_seqlens[i - 1] : cu_seqlens[i], cu_seqlens[i - 1] : cu_seqlens[i]] = True
+            attention_mask[..., cu_seqlens[i - 1]:cu_seqlens[i],
+                           cu_seqlens[i - 1]:cu_seqlens[i]] = True
 
         query_states = query_states.transpose(0, 1)
         key_states = key_states.transpose(0, 1)
         value_states = value_states.transpose(0, 1)
 
-        attn_weights = torch.matmul(query_states, key_states.transpose(1, 2)) / math.sqrt(self.head_dim)
+        attn_weights = torch.matmul(query_states, key_states.transpose(
+            1, 2)) / math.sqrt(self.head_dim)
         attn_weights = attn_weights + attention_mask
 
         # upcast attention to fp32
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        attn_weights = nn.functional.dropout(attn_weights, p=self.dropout, training=self.training)
+        attn_weights = nn.functional.softmax(attn_weights,
+                                             dim=-1,
+                                             dtype=torch.float32).to(
+                                                 query_states.dtype)
+        attn_weights = nn.functional.dropout(attn_weights,
+                                             p=self.dropout,
+                                             training=self.training)
         attn_output = torch.matmul(attn_weights, value_states)
 
         attn_output = attn_output.transpose(0, 1)
@@ -301,15 +317,18 @@ class VisionFlashAttention2(VisionAttention):
         query_states = query_states.view(q_len, self.num_heads, self.head_dim)
         key_states = key_states.view(q_len, self.num_heads, self.head_dim)
         value_states = value_states.view(q_len, self.num_heads, self.head_dim)
-        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
-        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
-        
+        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0),
+                                                   rotary_pos_emb).squeeze(0)
+        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0),
+                                                 rotary_pos_emb).squeeze(0)
+
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
-        attn_output = flash_attn_varlen_func(query_states, key_states, value_states, cu_seqlens, cu_seqlens, max_seqlen, max_seqlen).reshape(
-            q_len, -1
-        )
+        attn_output = flash_attn_varlen_func(query_states, key_states,
+                                             value_states, cu_seqlens,
+                                             cu_seqlens, max_seqlen,
+                                             max_seqlen).reshape(q_len, -1)
         attn_output = self.out_proj(attn_output)
-        
+
         return attn_output
 
 
@@ -326,21 +345,32 @@ class VisionSdpaAttention(VisionAttention):
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-        query_states = query_states.view(seq_length, self.num_heads, self.head_dim)
+        query_states = query_states.view(seq_length, self.num_heads,
+                                         self.head_dim)
         key_states = key_states.view(seq_length, self.num_heads, self.head_dim)
-        value_states = value_states.view(seq_length, self.num_heads, self.head_dim)
+        value_states = value_states.view(seq_length, self.num_heads,
+                                         self.head_dim)
 
-        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
-        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0), rotary_pos_emb).squeeze(0)
+        query_states = apply_rotary_pos_emb_vision(query_states.unsqueeze(0),
+                                                   rotary_pos_emb).squeeze(0)
+        key_states = apply_rotary_pos_emb_vision(key_states.unsqueeze(0),
+                                                 rotary_pos_emb).squeeze(0)
 
-        attention_mask = torch.zeros([1, seq_length, seq_length], device=query_states.device, dtype=torch.bool)
+        attention_mask = torch.zeros([1, seq_length, seq_length],
+                                     device=query_states.device,
+                                     dtype=torch.bool)
         for i in range(1, len(cu_seqlens)):
-            attention_mask[..., cu_seqlens[i - 1] : cu_seqlens[i], cu_seqlens[i - 1] : cu_seqlens[i]] = True
+            attention_mask[..., cu_seqlens[i - 1]:cu_seqlens[i],
+                           cu_seqlens[i - 1]:cu_seqlens[i]] = True
 
         query_states = query_states.transpose(0, 1)
         key_states = key_states.transpose(0, 1)
         value_states = value_states.transpose(0, 1)
-        attn_output = F.scaled_dot_product_attention(query_states, key_states, value_states, attention_mask, dropout_p=0.0)
+        attn_output = F.scaled_dot_product_attention(query_states,
+                                                     key_states,
+                                                     value_states,
+                                                     attention_mask,
+                                                     dropout_p=0.0)
         attn_output = attn_output.transpose(0, 1)
         attn_output = attn_output.reshape(seq_length, -1)
         attn_output = self.proj(attn_output)
@@ -376,17 +406,23 @@ class Videollama3VisionEncoderLayer(nn.Module):
     def __init__(self, config: Videollama3VisionEncoderConfig):
         super().__init__()
         self.embed_dim = config.hidden_size
-        self.self_attn = VISION_ATTENTION_CLASSES[config._attn_implementation](config=config)
-        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.self_attn = VISION_ATTENTION_CLASSES[config._attn_implementation](
+            config=config)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim,
+                                        eps=config.layer_norm_eps)
         self.mlp = Videollama3VisionMLP(config)
-        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim,
+                                        eps=config.layer_norm_eps)
 
     # Ignore copy
-    def forward(self, hidden_states, cu_seqlens, rotary_pos_emb) -> torch.Tensor:
+    def forward(self, hidden_states, cu_seqlens,
+                rotary_pos_emb) -> torch.Tensor:
         hidden_states = hidden_states + self.self_attn(
-            self.layer_norm1(hidden_states), cu_seqlens=cu_seqlens, rotary_pos_emb=rotary_pos_emb
-        )
-        hidden_states = hidden_states + self.mlp(self.layer_norm2(hidden_states))
+            self.layer_norm1(hidden_states),
+            cu_seqlens=cu_seqlens,
+            rotary_pos_emb=rotary_pos_emb)
+        hidden_states = hidden_states + self.mlp(
+            self.layer_norm2(hidden_states))
         return hidden_states
 
 
@@ -397,7 +433,10 @@ class Videollama3VisionTransformerEncoder(nn.Module):
         self.config = config
         head_dim = config.hidden_size // config.num_attention_heads
         self.rotary_pos_emb = VisionRotaryEmbedding(head_dim // 2)
-        self.layers = nn.ModuleList([Videollama3VisionEncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.ModuleList([
+            Videollama3VisionEncoderLayer(config)
+            for _ in range(config.num_hidden_layers)
+        ])
         self.gradient_checkpointing = False
 
     def rot_pos_emb(self, grid_sizes, merge_sizes):
@@ -422,7 +461,8 @@ class Videollama3VisionTransformerEncoder(nn.Module):
             )
             wpos_ids = wpos_ids.permute(0, 2, 1, 3)
             wpos_ids = wpos_ids.flatten()
-            pos_ids.append(torch.stack([hpos_ids, wpos_ids], dim=-1).repeat(t, 1))
+            pos_ids.append(
+                torch.stack([hpos_ids, wpos_ids], dim=-1).repeat(t, 1))
 
         pos_ids = torch.cat(pos_ids, dim=0)
         max_grid_size = grid_sizes[:, 1:].max()
@@ -434,19 +474,19 @@ class Videollama3VisionTransformerEncoder(nn.Module):
     def forward(self, hidden_states, grid_sizes, merge_sizes) -> torch.Tensor:
         rotary_pos_emb = self.rot_pos_emb(grid_sizes, merge_sizes)
 
-        cu_seqlens = torch.repeat_interleave(grid_sizes[:, 1] * grid_sizes[:, 2], grid_sizes[:, 0]).cumsum(dim=0, dtype=torch.int32)
+        cu_seqlens = torch.repeat_interleave(
+            grid_sizes[:, 1] * grid_sizes[:, 2],
+            grid_sizes[:, 0]).cumsum(dim=0, dtype=torch.int32)
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
 
         for blk in self.layers:
             if self.gradient_checkpointing and self.training:
                 hidden_states = self._gradient_checkpointing_func(
-                    blk.__call__,
-                    hidden_states,
-                    cu_seqlens,
-                    rotary_pos_emb
-                )
+                    blk.__call__, hidden_states, cu_seqlens, rotary_pos_emb)
             else:
-                hidden_states = blk(hidden_states, cu_seqlens=cu_seqlens, rotary_pos_emb=rotary_pos_emb)
+                hidden_states = blk(hidden_states,
+                                    cu_seqlens=cu_seqlens,
+                                    rotary_pos_emb=rotary_pos_emb)
 
         return hidden_states
 
@@ -474,28 +514,35 @@ class Videollama3VisionEncoderModel(PreTrainedModel):
 
         self.post_init()
 
-    def forward(self, pixel_values, grid_sizes, merge_sizes=None) -> torch.Tensor:
+    def forward(self,
+                pixel_values,
+                grid_sizes,
+                merge_sizes=None) -> torch.Tensor:
         hidden_states = self.embeddings(pixel_values)
         hidden_states = self.encoder(hidden_states, grid_sizes, merge_sizes)
         hidden_states = self.post_layernorm(hidden_states)
 
-        hidden_states_chunks = hidden_states.split(grid_sizes.prod(dim=1).tolist(), dim=0)
+        hidden_states_chunks = hidden_states.split(
+            grid_sizes.prod(dim=1).tolist(), dim=0)
         outputs = []
 
-        for hidden_states, grid_size, merge_size in zip(hidden_states_chunks, grid_sizes, merge_sizes):
+        for hidden_states, grid_size, merge_size in zip(hidden_states_chunks,
+                                                        grid_sizes,
+                                                        merge_sizes):
             # NOTE: previous implementation, which supports downsampling with any factor
             c = hidden_states.shape[-1]
-            hidden_states = hidden_states.view(
-                grid_size[0], grid_size[1] // merge_size, grid_size[2] // merge_size, merge_size, merge_size,  c
-            ).permute(0, 1, 3, 2, 4, 5)
-            hidden_states = hidden_states.reshape(
-                grid_size[0], grid_size[1], grid_size[2], c
-            ).permute(0, 3, 1, 2)
+            hidden_states = hidden_states.view(grid_size[0],
+                                               grid_size[1] // merge_size,
+                                               grid_size[2] // merge_size,
+                                               merge_size, merge_size,
+                                               c).permute(0, 1, 3, 2, 4, 5)
+            hidden_states = hidden_states.reshape(grid_size[0], grid_size[1],
+                                                  grid_size[2],
+                                                  c).permute(0, 3, 1, 2)
             hidden_states = torch.nn.functional.interpolate(
                 hidden_states,
                 size=(grid_size[1] // merge_size, grid_size[2] // merge_size),
-                mode='bilinear'
-            )
+                mode='bilinear')
             hidden_states = hidden_states.permute(0, 2, 3, 1).view(-1, c)
 
             # NOTE: simplified implementation, which only supports downsampling with integer factor

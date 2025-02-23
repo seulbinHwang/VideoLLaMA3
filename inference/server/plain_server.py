@@ -19,7 +19,8 @@ def get_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
@@ -62,7 +63,7 @@ class VideoLLaMA3PlainClient(object):
 
         client_thread = Thread(target=self._client_worker)
         client_thread.deamon = True
-        client_thread.start()        
+        client_thread.start()
 
     def _receive_worker(self, server_socket):
         try:
@@ -96,7 +97,10 @@ class VideoLLaMA3PlainClient(object):
     def _send_worker(self, server_socket):
         while True:
             request_id, conversation = self.input_buffer.get()
-            data = json.dumps({"id": request_id, "data": conversation}) + SEPARATOR
+            data = json.dumps({
+                "id": request_id,
+                "data": conversation
+            }) + SEPARATOR
             server_socket.sendall(data.encode("utf-8"))
             self.logger.info(f"Sent: {data}")
 
@@ -112,11 +116,13 @@ class VideoLLaMA3PlainClient(object):
                     continue
 
             self.logger.info("Connected to server.")
-            receive_thread = Thread(target=self._receive_worker, args=(server_socket,))
+            receive_thread = Thread(target=self._receive_worker,
+                                    args=(server_socket,))
             receive_thread.daemon = True
             receive_thread.start()
 
-            send_thread = Thread(target=self._send_worker, args=(server_socket,))
+            send_thread = Thread(target=self._send_worker,
+                                 args=(server_socket,))
             send_thread.daemon = True
             send_thread.start()
 
@@ -162,24 +168,31 @@ class VideoLLaMA3PlainServer(object):
             attn_implementation=self.attn_implementation,
             device_map=device_map,
         )
-        processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(self.model_path,
+                                                  trust_remote_code=True)
         logger.info(f"Successfully loaded model.")
 
         while True:
             logger.info("Waiting for input...")
             request_id, data = input_buffer.get()
             try:
-                inputs = processor(
-                    conversation=data["conversation"],
-                    add_system_prompt=True,
-                    add_generation_prompt=True,
-                    return_tensors="pt"
-                )
-                inputs = {k: v.to(f"cuda:{rank}") if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+                inputs = processor(conversation=data["conversation"],
+                                   add_system_prompt=True,
+                                   add_generation_prompt=True,
+                                   return_tensors="pt")
+                inputs = {
+                    k:
+                        v.to(f"cuda:{rank}")
+                        if isinstance(v, torch.Tensor) else v
+                    for k, v in inputs.items()
+                }
                 if "pixel_values" in inputs:
-                    inputs["pixel_values"] = inputs["pixel_values"].to(torch.bfloat16)
+                    inputs["pixel_values"] = inputs["pixel_values"].to(
+                        torch.bfloat16)
 
-                streamer = TextIteratorStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)
+                streamer = TextIteratorStreamer(processor.tokenizer,
+                                                skip_prompt=True,
+                                                skip_special_tokens=True)
                 generation_kwargs = {
                     **inputs,
                     **data["generation_config"],
@@ -196,15 +209,20 @@ class VideoLLaMA3PlainServer(object):
 
             except:
                 logger.error(f"An error occurred: {traceback.format_exc()}")
-                output_buffer.put((request_id, "Server error! Please check the server logs and retry."))
+                output_buffer.put(
+                    (request_id,
+                     "Server error! Please check the server logs and retry."))
                 output_buffer.put((request_id, EOS_FLAG))
 
-    def _receive_worker(self, logger, input_buffer, client_socket, client_address):
+    def _receive_worker(self, logger, input_buffer, client_socket,
+                        client_address):
         try:
             while True:
                 data = client_socket.recv(8192)
                 if not data:
-                    logger.info(f"Connection from {client_address} has been terminated.")
+                    logger.info(
+                        f"Connection from {client_address} has been terminated."
+                    )
                     break
 
                 for sub_data in data.decode("utf-8").split(SEPARATOR):
@@ -221,9 +239,11 @@ class VideoLLaMA3PlainServer(object):
                     input_buffer.put((sub_data["id"], sub_data["data"]))
 
         except ConnectionResetError:
-            logger.info(f"Connection from {client_address} has been terminated.")
+            logger.info(
+                f"Connection from {client_address} has been terminated.")
 
-    def _send_worker(self, logger, output_buffer, client_socket, client_address):
+    def _send_worker(self, logger, output_buffer, client_socket,
+                     client_address):
         try:
             while True:
                 request_id, token = output_buffer.get()
@@ -231,7 +251,8 @@ class VideoLLaMA3PlainServer(object):
                 client_socket.sendall(data.encode("utf-8"))
 
         except ConnectionResetError:
-            logger.info(f"Connection from {client_address} has been terminated.")
+            logger.info(
+                f"Connection from {client_address} has been terminated.")
 
     def launch(self):
         logger = get_logger(f"videollama3.server.controller")
@@ -241,7 +262,8 @@ class VideoLLaMA3PlainServer(object):
 
         for i in range(self.num_processes):
             device_map = {"": f"cuda:{i}"}
-            process = Process(target=self._model_worker, args=(input_buffer, output_buffer, device_map, i))
+            process = Process(target=self._model_worker,
+                              args=(input_buffer, output_buffer, device_map, i))
             process.start()
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
@@ -253,11 +275,15 @@ class VideoLLaMA3PlainServer(object):
                 client_socket, client_address = server_socket.accept()
                 logger.info(f"Connected to {client_address}.")
 
-                receive_thread = Thread(target=self._receive_worker, args=(logger, input_buffer, client_socket, client_address))
+                receive_thread = Thread(target=self._receive_worker,
+                                        args=(logger, input_buffer,
+                                              client_socket, client_address))
                 receive_thread.deamon = True
                 receive_thread.start()
 
-                send_thread = Thread(target=self._send_worker, args=(logger, output_buffer, client_socket, client_address))
+                send_thread = Thread(target=self._send_worker,
+                                     args=(logger, output_buffer, client_socket,
+                                           client_address))
                 send_thread.deamon = True
                 send_thread.start()
 
