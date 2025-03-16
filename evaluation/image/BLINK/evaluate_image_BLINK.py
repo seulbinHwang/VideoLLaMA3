@@ -66,23 +66,31 @@ def eval_prediction(split, model_name):
         accu_by_task[task] = accu_by_task[task] / task_numbers[task]
         average_accu += accu_by_task[task]
     average_accu = average_accu / len(subtasks)
-    accu_by_task["Total"] = average_accu 
-    print(f'Average Accuracy of model {model_name} on BLINK split {split} over all tasks is {round(100 * average_accu, 2)}%')
+    accu_by_task["Total"] = average_accu
+    print(
+        f'Average Accuracy of model {model_name} on BLINK split {split} over all tasks is {round(100 * average_accu, 2)}%'
+    )
     return accu_by_task
 
-if __name__ == '__main__':  
+
+if __name__ == '__main__':
     # dataset_name = '/mnt/data/EVAL_BENCH/IMAGE/BLINK'
     # output_save_folder = '/mnt/data/sicong/ProjectX/BLINK_outputs'
     # Configuration
     if len(sys.argv) != 3:
-        print("Usage: python evaluate_image_BLINK.py [model_name] [output_file]")
+        print(
+            "Usage: python evaluate_image_BLINK.py [model_name] [output_file]")
         sys.exit(1)
     model_name = sys.argv[1]
     output_save_folder = sys.argv[2]
 
     subtasks = [
-        'Visual_Similarity', 'Counting', 'Relative_Depth', 'Jigsaw', 'Art_Style', 'Functional_Correspondence', 'Semantic_Correspondence', 'Spatial_Relation', 'Object_Localization', 'Visual_Correspondence', 'Multi-view_Reasoning', 'Relative_Reflectance', 'Forensic_Detection', 'IQ_Test'
-        ]
+        'Visual_Similarity', 'Counting', 'Relative_Depth', 'Jigsaw',
+        'Art_Style', 'Functional_Correspondence', 'Semantic_Correspondence',
+        'Spatial_Relation', 'Object_Localization', 'Visual_Correspondence',
+        'Multi-view_Reasoning', 'Relative_Reflectance', 'Forensic_Detection',
+        'IQ_Test'
+    ]
 
     split = 'val'
     get_prediction_file(split, model_name)

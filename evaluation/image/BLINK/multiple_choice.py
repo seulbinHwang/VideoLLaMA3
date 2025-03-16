@@ -5,20 +5,22 @@ import openai
 from openai import AzureOpenAI
 
 # set the environment variables
-os.environ["AZURE_OPENAI_ENDPOINT"] = "https://vl-australiaeast.openai.azure.com"
+os.environ[
+    "AZURE_OPENAI_ENDPOINT"] = "https://vl-australiaeast.openai.azure.com"
 os.environ["AZURE_OPENAI_KEY"] = "f68a11a54a064caa851e290258d52cce"
 os.environ["AZURE_OPENAI_DEPLOYNAME"] = "gpt35-turbo-0613"
 
-client = AzureOpenAI(
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
-        api_key=os.getenv("AZURE_OPENAI_KEY"),  
-        api_version="2024-02-15-preview"
-    )
+client = AzureOpenAI(azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                     api_key=os.getenv("AZURE_OPENAI_KEY"),
+                     api_version="2024-02-15-preview")
 
-def get_chat_response(promot, n=1, patience=10000000,
- sleep_time=0):
+
+def get_chat_response(promot, n=1, patience=10000000, sleep_time=0):
     messages = [
-        {"role": "user", "content": promot},
+        {
+            "role": "user",
+            "content": promot
+        },
     ]
     # print("I am here")
     while patience > 0:
@@ -30,7 +32,10 @@ def get_chat_response(promot, n=1, patience=10000000,
                 if prediction != "" and prediction != None:
                     return prediction
             else:
-                prediction = [choice.message.content.strip() for choice in response.choices]
+                prediction = [
+                    choice.message.content.strip()
+                    for choice in response.choices
+                ]
                 if prediction[0] != "" and prediction[0] != None:
                     return prediction
 
@@ -45,20 +50,21 @@ def get_chat_response(promot, n=1, patience=10000000,
                 new_start = len(promot) - new_size
                 promot = promot[new_start:]
                 messages = [
-                    {"role": "user", "content": promot},
+                    {
+                        "role": "user",
+                        "content": promot
+                    },
                 ]
-                
+
             if sleep_time > 0:
                 time.sleep(sleep_time)
     return ""
 
 
 def init():
-    client = AzureOpenAI(
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
-        api_key=os.getenv("AZURE_OPENAI_KEY"),  
-        api_version="2024-02-15-preview"
-    )
+    client = AzureOpenAI(azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                         api_key=os.getenv("AZURE_OPENAI_KEY"),
+                         api_version="2024-02-15-preview")
 
     return client
 
@@ -66,16 +72,16 @@ def init():
 def interaction(client, message_text):
     completion = client.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYNAME"),
-        messages = message_text,
+        messages=message_text,
         temperature=0.7,
         max_tokens=800,
         top_p=0.95,
         frequency_penalty=0,
         presence_penalty=0,
-        stop=None
-    )
+        stop=None)
 
     return completion
+
 
 def build_prompt(question, options, prediction):
     """
@@ -110,7 +116,7 @@ def build_prompt(question, options, prediction):
 def match_multiple_choice(question, options, prediction):
     prompt = build_prompt(question, options, prediction)
     retry_limit = 10
-    
+
     for retry in range(retry_limit):
         try:
             extraction = get_chat_response(prompt, patience=10)
@@ -119,6 +125,12 @@ def match_multiple_choice(question, options, prediction):
             time.sleep(1)
     return '(Z) Failed to get multiple choice'
 
+
 if __name__ == "__main__":
     client = init()
-    print(match_multiple_choice("Which point is corresponding to the reference point?\nSelect from the following choices.", "(A) Point A\n(B) Point B\n(C) Point C\n(D) Point D", "The reference point (REF) on the first image is located at the tip of the spatula, which is the part of the tool typically used to scrape surfaces. To find the corresponding point for the action \"Scrape\" on the second image, we need to identify the part of the tool that would be used in a similar manner.\n\nLooking at the second image:\n\n(A) Point A is on the side edge of the blade, which is not typically used for scraping.\n(B) Point B is on the top edge of the blade, which is also not used for scraping.\n(C) Point C is on the handle, which is not the scraping part but rather the part you hold.\n(D) Point D is on the label near the handle, which is also not relevant to the scraping action.\n\nNone of the labeled points correspond to the scraping edge of the tool in the second image. However, the closest equivalent part for scraping would be the unmarked edge opposite to Point A, which is the flat, sharp edge of the blade used for scraping. Since none of the provided choices accurately represent the scraping edge, none of the labeled points (A, B, C, D) are correct. The correct corresponding point for scraping is not marked on the second image."))
+    print(
+        match_multiple_choice(
+            "Which point is corresponding to the reference point?\nSelect from the following choices.",
+            "(A) Point A\n(B) Point B\n(C) Point C\n(D) Point D",
+            "The reference point (REF) on the first image is located at the tip of the spatula, which is the part of the tool typically used to scrape surfaces. To find the corresponding point for the action \"Scrape\" on the second image, we need to identify the part of the tool that would be used in a similar manner.\n\nLooking at the second image:\n\n(A) Point A is on the side edge of the blade, which is not typically used for scraping.\n(B) Point B is on the top edge of the blade, which is also not used for scraping.\n(C) Point C is on the handle, which is not the scraping part but rather the part you hold.\n(D) Point D is on the label near the handle, which is also not relevant to the scraping action.\n\nNone of the labeled points correspond to the scraping edge of the tool in the second image. However, the closest equivalent part for scraping would be the unmarked edge opposite to Point A, which is the flat, sharp edge of the blade used for scraping. Since none of the provided choices accurately represent the scraping edge, none of the labeled points (A, B, C, D) are correct. The correct corresponding point for scraping is not marked on the second image."
+        ))

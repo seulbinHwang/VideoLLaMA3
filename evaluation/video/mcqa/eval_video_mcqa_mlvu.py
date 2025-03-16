@@ -26,10 +26,10 @@ def main():
     task_acc = {x: sum(task_acc[x]) * 100 / len(task_acc[x]) for x in task_acc}
     print(f"{args.pred_path}: {acc:.2f}")
     task_names = list(task_acc.keys())
-    
+
     table_data = []
     for i in range(len(task_names) // 4):
-        row_task_names = task_names[i * 4: (i + 1) * 4]
+        row_task_names = task_names[i * 4:(i + 1) * 4]
         row_task_acc = [task_acc[x] for x in row_task_names]
         table_data.append(row_task_names)
         table_data.append(row_task_acc)
@@ -40,7 +40,9 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate video captioning.")
-    parser.add_argument("--pred_path", default=r'', help="The path to file containing prediction.")
+    parser.add_argument("--pred_path",
+                        default=r'',
+                        help="The path to file containing prediction.")
     args = parser.parse_args()
     return args
 

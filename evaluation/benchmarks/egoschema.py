@@ -23,10 +23,12 @@ class EgoSchemaDataset(BaseEvalDataset):
         for data in data_list:
             question_id = data["q_uid"]
             for video_format in ["mp4", "avi", "mov", "mkv"]:
-                video_path = os.path.join(video_folder, f"{question_id}.{video_format}")
+                video_path = os.path.join(video_folder,
+                                          f"{question_id}.{video_format}")
                 if os.path.exists(video_path):
                     break
-            assert os.path.exists(video_path), f"Cannot find the video file: {video_id}"
+            assert os.path.exists(
+                video_path), f"Cannot find the video file: {video_id}"
 
             data_dict[question_id] = {
                 # required fields for data loading
@@ -44,7 +46,7 @@ class EgoSchemaDataset(BaseEvalDataset):
         meta_data = self.data_dict[data_id]
         question = meta_data["question"]
         options = meta_data["options"]
-        instruction = f'Select the best answer to the following multiple-choice question based on the video.\n{question}\nOptions:\n(A) {options[0]}\n(B) {options[1]}\n(C) {options[2]}\n(D) {options[3]}\n(E) {options[4]}\nAnswer with the option\'s letter from the given choices directly and only give the best option. The best answer is: ' 
+        instruction = f'Select the best answer to the following multiple-choice question based on the video.\n{question}\nOptions:\n(A) {options[0]}\n(B) {options[1]}\n(C) {options[2]}\n(D) {options[3]}\n(E) {options[4]}\nAnswer with the option\'s letter from the given choices directly and only give the best option. The best answer is: '
         return instruction
 
     def process_response(self, data_id: Union[int, str], response: str) -> int:
@@ -73,15 +75,21 @@ class EgoSchemaDataset(BaseEvalDataset):
         assert find_flag, f"Cannot find the answer in the options: {response}"
         return pred_idx
 
-    def evaluate(self, results: List[Dict[str, Any]]) -> (None, Dict[str, List[Dict[str, Any]]]):
+    def evaluate(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (None, Dict[str, List[Dict[str, Any]]]):
         url = "https://validation-server.onrender.com/api/upload/"
         headers = {"Content-Type": "application/json"}
-        submission = {result["data_id"]: result["prediction"] for result in results}
+        submission = {
+            result["data_id"]: result["prediction"] for result in results
+        }
 
         response = requests.post(url, headers=headers, json=submission)
         assert response.status_code == 200, f"Failed to send POST request. Status code: {response.status_code}"
         matches = re.findall(r'(\d+) correct, (\d+) wrong', response.text)
-        assert len(matches) == 2, f"Failed to parse the response: {response.text}"
+        assert len(
+            matches) == 2, f"Failed to parse the response: {response.text}"
         print(response.text)
 
         total_correct, total_wrong = matches[0]
@@ -97,12 +105,10 @@ class EgoSchemaDataset(BaseEvalDataset):
         for data in results:
             data = deepcopy(data)
             meta_data = deepcopy(self.data_dict[data["data_id"]])
-            infos.append(
-                {
-                    **data,
-                    "meta_data": filter_metadata(meta_data),
-                }
-            )
+            infos.append({
+                **data,
+                "meta_data": filter_metadata(meta_data),
+            })
         infos = [metrics] + infos
 
         return metrics, infos

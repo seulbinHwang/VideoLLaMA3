@@ -15,7 +15,8 @@ def mmmu_process_results(results):
     if isinstance(pred, dict):
         pred = ''
 
-    index2ans, all_choices = get_multi_choice_info(ast.literal_eval(str(results["options"])))
+    index2ans, all_choices = get_multi_choice_info(
+        ast.literal_eval(str(results["options"])))
     parsed_pred = parse_multi_choice_response(pred, all_choices, index2ans)
 
     id = results["id"]
@@ -59,7 +60,10 @@ def mmmu_aggregate_results(results):
             else:
                 pass
         in_domain_ins_acc = calculate_ins_level_acc(in_domain_cat_results)
-        in_domain_data_num = sum([cat_results["num_example"] for cat_results in in_domain_cat_results.values()])
+        in_domain_data_num = sum([
+            cat_results["num_example"]
+            for cat_results in in_domain_cat_results.values()
+        ])
         printable_results["Overall-" + domain] = {
             "num": int(in_domain_data_num),
             "acc": round(in_domain_ins_acc, 3),
@@ -72,8 +76,13 @@ def mmmu_aggregate_results(results):
             }
     all_ins_acc = calculate_ins_level_acc(evaluation_result)
     printable_results["Overall"] = {
-        "num": sum([cat_results["num_example"] for cat_results in evaluation_result.values()]),
-        "acc": round(all_ins_acc, 3),
+        "num":
+            sum([
+                cat_results["num_example"]
+                for cat_results in evaluation_result.values()
+            ]),
+        "acc":
+            round(all_ins_acc, 3),
     }
     print(printable_results)
     return printable_results["Overall"]["acc"]
@@ -165,7 +174,8 @@ def eval_open(gold_i, pred_i):
     else:
         norm_answers = normalize_str(gold_i)
     for pred in pred_i:  # pred is already normalized in parse response phase
-        if isinstance(pred, str):  # if it's a string, then find if ans in the pred_i
+        if isinstance(pred,
+                      str):  # if it's a string, then find if ans in the pred_i
             for norm_ans in norm_answers:
                 # only see if the string answer in the string pred
                 if isinstance(norm_ans, str) and norm_ans in pred:
@@ -193,7 +203,6 @@ def evaluate_mmmu(samples):
 
         correct = eval_multi_choice(gold_i, pred_i)
 
-
         if correct:
             judge_dict[sample["id"]] = "Correct"
             pred_correct += 1
@@ -209,6 +218,7 @@ def parse_multi_choice_responses(response):
     pred_indexs = []
     return pred_indexs
 
+
 def parse_multi_choice_response(response, all_choices, index2ans):
     """
     Parse the prediction from the generated response.
@@ -221,21 +231,21 @@ def parse_multi_choice_response(response, all_choices, index2ans):
         answer_str = response[last_answer_pos + len("Answer:"):].strip()
 
         # Find a unique match in the options
-        matching_options = [option for option in all_choices if option in answer_str]
+        matching_options = [
+            option for option in all_choices if option in answer_str
+        ]
 
         # If a unique match is found, return that option
         if len(matching_options) == 1:
             return matching_options[0]
-
 
     if isinstance(response, str):
         for char in [",", ".", "!", "?", ";", ":", "'"]:
             response = response.strip(char)
         response = " " + response + " "  # add space to avoid partial match
     else:
-        print (response)
+        print(response)
         response = ""
-
 
     index_ans = True
     ans_with_brack = False
@@ -382,23 +392,26 @@ def parse_open_response(response):
             for indicator in indicators_of_keys:
                 if indicator in resp:
                     if not shortest_key_response:
-                        shortest_key_response = resp.split(indicator)[-1].strip()
+                        shortest_key_response = resp.split(
+                            indicator)[-1].strip()
                     else:
-                        if len(resp.split(indicator)[-1].strip()) < len(shortest_key_response):
-                            shortest_key_response = resp.split(indicator)[-1].strip()
+                        if len(resp.split(indicator)[-1].strip()) < len(
+                                shortest_key_response):
+                            shortest_key_response = resp.split(
+                                indicator)[-1].strip()
                     # key_responses.append(resp.split(indicator)[1].strip())
 
             if shortest_key_response:
                 # and it's not trivial
                 if shortest_key_response.strip() not in [
-                    ":",
-                    ",",
-                    ".",
-                    "!",
-                    "?",
-                    ";",
-                    ":",
-                    "'",
+                        ":",
+                        ",",
+                        ".",
+                        "!",
+                        "?",
+                        ";",
+                        ":",
+                        "'",
                 ]:
                     key_responses.append(shortest_key_response)
         if len(key_responses) == 0:  # did not found any
@@ -442,6 +455,7 @@ def get_multi_choice_info(options):
 
 NUM = 1730
 
+
 def check_files(file_path):
     # pattern = re.compile(r"(?P<model_name>.+)_(?P<setting>standard|vision)_(?P<method>cot|direct)\.jsonl")
 
@@ -480,6 +494,7 @@ def check_files(file_path):
     # with open(file_path, 'w', encoding='utf-8') as outfile:
     #     for item in processed_results:
     #         outfile.write(json.dumps(item) + '\n')
+
 
 if __name__ == "__main__":
     # Configuration

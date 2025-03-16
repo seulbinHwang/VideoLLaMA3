@@ -13,7 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -54,11 +53,14 @@ class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
         )
 
     """
+
     def __init__(self, config, **kwargs):
         super(Qwen2ForCausalLM, self).__init__(config)
         self.model = Videollama3Qwen2Model(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.hidden_size,
+                                 config.vocab_size,
+                                 bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -164,22 +166,27 @@ class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
         else:
             inputs_embeds = self.get_model().embed_tokens(input_ids)
 
-        return super().generate(
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
-            **kwargs
-        )
+        return super().generate(position_ids=position_ids,
+                                attention_mask=attention_mask,
+                                inputs_embeds=inputs_embeds,
+                                **kwargs)
 
-    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, inputs_embeds=None, **kwargs):
+    def prepare_inputs_for_generation(self,
+                                      input_ids,
+                                      past_key_values=None,
+                                      inputs_embeds=None,
+                                      **kwargs):
         images = kwargs.pop("images", None)
         _inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
-        )
+            input_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            **kwargs)
         if images is not None:
             _inputs['images'] = images
         return _inputs
 
 
 AutoConfig.register("videollama3_qwen2", Videollama3Qwen2Config)
-AutoModelForCausalLM.register(Videollama3Qwen2Config, Videollama3Qwen2ForCausalLM)
+AutoModelForCausalLM.register(Videollama3Qwen2Config,
+                              Videollama3Qwen2ForCausalLM)

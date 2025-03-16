@@ -22,6 +22,7 @@ def evaluate_exact_match_accuracy(results):
         scores.append(score)
     return sum(scores) / len(scores)
 
+
 def read_json(path):
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -38,7 +39,8 @@ if __name__ == '__main__':
     if args.num_chunks > 1:
         results = {}
         for _idx in range(args.num_chunks):
-            file = args.results_file.replace('.json', f'_{args.num_chunks}_{_idx}.json')
+            file = args.results_file.replace('.json',
+                                             f'_{args.num_chunks}_{_idx}.json')
             results.update(read_json(file))
     else:
         results = read_json(args.results_file)
@@ -46,4 +48,3 @@ if __name__ == '__main__':
     acc = evaluate_exact_match_accuracy(results)
 
     print(f'overall accuracy: {acc}')
-

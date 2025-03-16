@@ -14,18 +14,21 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 
 import sys
+
 sys.path.append('./')
 from evaluation.register import INFERENCES
 from videollama3.utils import disable_torch_init
 
 # NOTE: Ignore TypedStorage warning, which refers to this link~(https://github.com/pytorch/pytorch/issues/97207#issuecomment-1494781560)
-warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
+warnings.filterwarnings('ignore',
+                        category=UserWarning,
+                        message='TypedStorage is deprecated')
 
 
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
@@ -95,10 +98,13 @@ class BackgroundGenerator(threading.Thread):
 
 
 class CUDADataLoader(DataLoader):
+
     def __init__(self, dataset, **kwargs):
         super().__init__(dataset, **kwargs)
-        local_rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
-        self.stream = torch.cuda.Stream(local_rank) # create a new cuda stream in each process
+        local_rank = torch.distributed.get_rank(
+        ) if torch.distributed.is_initialized() else 0
+        self.stream = torch.cuda.Stream(
+            local_rank)  # create a new cuda stream in each process
         self.local_rank = local_rank
 
     def __iter__(self):
@@ -130,11 +136,14 @@ class CUDADataLoader(DataLoader):
         with torch.cuda.stream(self.stream):
             frames = self.batch['video'][0][0][0]
             for idx, frame in enumerate(frames):
-                frames[idx]['pixel_values'] = frame['pixel_values'].to(device=self.local_rank, non_blocking=True)
-                frames[idx]['image_grid_thw'] = frame['image_grid_thw'].to(device=self.local_rank, non_blocking=True)
+                frames[idx]['pixel_values'] = frame['pixel_values'].to(
+                    device=self.local_rank, non_blocking=True)
+                frames[idx]['image_grid_thw'] = frame['image_grid_thw'].to(
+                    device=self.local_rank, non_blocking=True)
 
     def __next__(self):
-        torch.cuda.current_stream().wait_stream(self.stream)  # wait tensor to put on GPU
+        torch.cuda.current_stream().wait_stream(
+            self.stream)  # wait tensor to put on GPU
         batch = self.batch
         if batch is None:
             raise StopIteration
@@ -145,14 +154,14 @@ class CUDADataLoader(DataLoader):
     def shutdown(self):
         # If the dataloader is to be freed, shutdown its BackgroundGenerator
         self._shutdown_background_thread()
-        
+
 
 class MLVUDataset(Dataset):
 
     def __init__(self, data_list, processor):
         self.data_list = data_list
         self.processor = processor
-    
+
     def __str__(self):
         len_list = {}
         option_list = {}
@@ -163,7 +172,7 @@ class MLVUDataset(Dataset):
             if data['task_type'] not in option_list:
                 option_list[data['task_type']] = 0
             option_list[data['task_type']] += len(data['data']['candidates'])
-        
+
         correct = 0
         total = 0
         res = f"There are {len(self.data_list)} videos as follow:\n"
@@ -193,11 +202,11 @@ class MLVUDataset(Dataset):
 
     def __getitem__(self, idx):
         task_type = self.data_list[idx]['task_type']
-        
+
         video_folder = self.data_list[idx]['prefix']
         video_name = self.data_list[idx]['data']['video']
         video_path = os.path.join(video_folder, video_name)
-        
+
         question = self.data_list[idx]['data']['question']
         candidates = self.data_list[idx]['data']['candidates']
         answer = self.data_list[idx]['data']['answer']
@@ -207,31 +216,31 @@ class MLVUDataset(Dataset):
 
         return {
             'video_name': video_name,
-            'video':      video_tensor,
-            'instruct':   instruct, 
+            'video': video_tensor,
+            'instruct': instruct,
             'candidates': candidates,
-            'answer':     answer,
-            'task_type':  task_type,
+            'answer': answer,
+            'task_type': task_type,
         }
 
 
 def collate_fn(batch):
     return {
-        'video_name': [x['video_name'] for x in batch], 
-        'video':      [x['video'] for x in batch],
-        'instruct':   [x['instruct'] for x in batch],
+        'video_name': [x['video_name'] for x in batch],
+        'video': [x['video'] for x in batch],
+        'instruct': [x['instruct'] for x in batch],
         'candidates': [x['candidates'] for x in batch],
-        'answer':     [x['answer'] for x in batch],
-        'task_type':  [x['task_type'] for x in batch],
+        'answer': [x['answer'] for x in batch],
+        'task_type': [x['task_type'] for x in batch],
     }
 
 
 mcqa_tasks = {
     "plotQA": ("1_plotQA.json", "1_plotQA"),
     "needle": ("2_needle.json", "2_needle"),
-    "ego":    ("3_ego.json",    "3_ego"),
-    "count":  ("4_count.json",  "4_count"),
-    "order":  ("5_order.json",  "5_order"),
+    "ego": ("3_ego.json", "3_ego"),
+    "count": ("4_count.json", "4_count"),
+    "order": ("5_order.json", "5_order"),
     "anomaly_reco": ("6_anomaly_reco.json", "6_anomaly_reco"),
     "topic_reasoning": ("7_topic_reasoning.json", "7_topic_reasoning")
 }
@@ -258,9 +267,14 @@ def build_mlvu_eval(args, processor):
     # set random seed
     random.seed(42)
     random.shuffle(data_list)
-    data_list  = get_chunk(data_list, args.num_chunks, args.chunk_idx)
-    dataset    = MLVUDataset(data_list, processor)
-    dataloader = CUDADataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True, num_workers=args.num_workers, collate_fn=collate_fn)
+    data_list = get_chunk(data_list, args.num_chunks, args.chunk_idx)
+    dataset = MLVUDataset(data_list, processor)
+    dataloader = CUDADataLoader(dataset,
+                                batch_size=1,
+                                shuffle=False,
+                                pin_memory=True,
+                                num_workers=args.num_workers,
+                                collate_fn=collate_fn)
 
     return dataloader
 
@@ -268,16 +282,16 @@ def build_mlvu_eval(args, processor):
 def check_ans(pred, gt):
     flag = False
 
-    index=gt.index("(")
-    index2=gt.index(")")
-    gt_option=gt[index+1:index2]
+    index = gt.index("(")
+    index2 = gt.index(")")
+    gt_option = gt[index + 1:index2]
 
     if ")" in pred:
-        index3=pred.index(")")
-        pred=pred[index3-1:index3]
+        index3 = pred.index(")")
+        pred = pred[index3 - 1:index3]
 
-    if pred==gt_option:
-        flag=True
+    if pred == gt_option:
+        flag = True
 
     return flag
 
@@ -285,16 +299,17 @@ def check_ans(pred, gt):
 def mlvu_dump(candidates, output):
     output = output.replace('answer', '')
     output = output.replace('Answer', '')
-    
+
     letters = [chr(i) for i in range(ord('A'), ord('A') + len(candidates))]
-    
-    pred_answer = re.findall(f'[\(,\ ]*[{letters[0]}-{letters[-1]}][\),\ ]*', output)
+
+    pred_answer = re.findall(f'[\(,\ ]*[{letters[0]}-{letters[-1]}][\),\ ]*',
+                             output)
     if len(pred_answer) == 0:
         pred_answer = 'C'
     else:
         pred_answer = pred_answer[0].strip()
         pred_answer = pred_answer.strip('()')
-    
+
     return pred_answer
 
 
@@ -304,7 +319,8 @@ def run_inference(args):
     model_init, mm_infer = INFERENCES(args.model_path)
     model, processor, tokenizer = model_init(args.model_path)
 
-    answer_file = args.answer_file.replace('.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
+    answer_file = args.answer_file.replace(
+        '.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
     ans_file = open(answer_file, "w")
@@ -313,12 +329,12 @@ def run_inference(args):
 
     # NOTE: only support batch size 1 for now
     for i, line in enumerate(tqdm(val_loader)):
-        video_name   = line['video_name'][0]
+        video_name = line['video_name'][0]
         video_tensor = line['video'][0]
-        task_type    = line['task_type'][0]
-        instruct     = line['instruct'][0]
-        candidates   = line['candidates'][0]
-        answer       = line['answer'][0]#.item()
+        task_type = line['task_type'][0]
+        instruct = line['instruct'][0]
+        candidates = line['candidates'][0]
+        answer = line['answer'][0]  #.item()
 
         output = mm_infer(
             video_tensor,
@@ -331,7 +347,13 @@ def run_inference(args):
 
         pred_answer = mlvu_dump(candidates, output)
 
-        ans_file.write(json.dumps({"task_type": task_type, "video": video_name,  "pred": pred_answer, "gt": answer}) + '\n')
+        ans_file.write(
+            json.dumps({
+                "task_type": task_type,
+                "video": video_name,
+                "pred": pred_answer,
+                "gt": answer
+            }) + '\n')
 
     ans_file.close()
 
@@ -340,9 +362,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model-path', help='', required=True)
-    parser.add_argument('--video-folder', help='Directory containing video files.', required=True)
-    parser.add_argument('--question-file', help='Path to the ground truth file containing question.', required=True)
-    parser.add_argument('--answer-file', help='Path to the ground truth file containing answers.', required=True)
+    parser.add_argument('--video-folder',
+                        help='Directory containing video files.',
+                        required=True)
+    parser.add_argument(
+        '--question-file',
+        help='Path to the ground truth file containing question.',
+        required=True)
+    parser.add_argument(
+        '--answer-file',
+        help='Path to the ground truth file containing answers.',
+        required=True)
     parser.add_argument("--num-chunks", type=int, default=1)
     parser.add_argument("--chunk-idx", type=int, default=0)
     parser.add_argument("--num-workers", type=int, default=8)

@@ -13,7 +13,9 @@ from videollama3.constants import DEFAULT_IMAGE_TOKEN
 from videollama3.mm_utils import load_video
 
 
-def filter_metadata(data: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+def filter_metadata(
+        data: Union[Dict[str, Any],
+                    List[Any]]) -> Union[Dict[str, Any], List[Any]]:
     if isinstance(data, dict):
         new_data = {}
         for key, value in data.items():
@@ -93,11 +95,9 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
                 fps=self.fps,
                 max_frames=self.max_frames,
             )
-            image_inputs = self.processor.process_images(
-                [frames],
-                merge_size=2,
-                return_tensors="pt"
-            )
+            image_inputs = self.processor.process_images([frames],
+                                                         merge_size=2,
+                                                         return_tensors="pt")
         except:
             traceback.print_exc()
             print(f"Failed to load video: {aggregated_data}")
@@ -106,29 +106,29 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         text_inputs = []
         for data_id in aggregated_data["data_ids"]:
             instruction = self.generate_instruction(data_id, timestamps)
-            conversation = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "video",
-                            "num_frames": len(timestamps),
-                            "timestamps": timestamps,
-                        },
-                        {"type": "text", "text": instruction},
-                    ],
-                }
-            ]
-            prompt = self.processor.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+            conversation = [{
+                "role":
+                    "user",
+                "content": [
+                    {
+                        "type": "video",
+                        "num_frames": len(timestamps),
+                        "timestamps": timestamps,
+                    },
+                    {
+                        "type": "text",
+                        "text": instruction
+                    },
+                ],
+            }]
+            prompt = self.processor.apply_chat_template(
+                conversation, tokenize=False, add_generation_prompt=True)
             text_inputs.append(
-                self.processor.process_text(
-                    prompt,
-                    image_inputs,
-                    padding=False,
-                    padding_side=None,
-                    return_tensors="pt"
-                )
-            )
+                self.processor.process_text(prompt,
+                                            image_inputs,
+                                            padding=False,
+                                            padding_side=None,
+                                            return_tensors="pt"))
 
         data = {
             "data_ids": aggregated_data["data_ids"],
@@ -169,7 +169,9 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def generate_instruction(self, data_id: Union[int, str], timestamps: List[float]) -> Union[str, Dict[str, str]]:
+    def generate_instruction(
+            self, data_id: Union[int, str],
+            timestamps: List[float]) -> Union[str, Dict[str, str]]:
         """
         Generate instruction(s) for model inference.
 
@@ -195,7 +197,10 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         """
         pass
 
-    def evaluate(self, results: List[Dict[str, Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
+    def evaluate(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
         """
         Compute the evaluation metrics according to predictions and ground-truths.
 
@@ -208,7 +213,9 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         """
         assert self.BENCHMARK_TYPE is not None, "BENCHMARK_TYPE is not defined."
         if self.TASK_TYPES is None:
-            warnings.warn("TASK_TYPES is not defined. It will be automatically inferred from metadata.")
+            warnings.warn(
+                "TASK_TYPES is not defined. It will be automatically inferred from metadata."
+            )
         if self.BENCHMARK_TYPE == "mcqa":
             return self._eval_mcqa(results)
         elif self.BENCHMARK_TYPE == "oqa":
@@ -216,9 +223,13 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         elif self.BENCHMARK_TYPE == "temporal_grounding":
             return self._eval_temporal_grounding(results)
         else:
-            raise NotImplementedError(f"Unsupported benchmark type: {self.BENCHMARK_TYPE}")
+            raise NotImplementedError(
+                f"Unsupported benchmark type: {self.BENCHMARK_TYPE}")
 
-    def _eval_mcqa(self, results: List[Dict[str, Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
+    def _eval_mcqa(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
         """
         Compute the evaluation metrics for multiple-choice question answering tasks.
 
@@ -229,7 +240,11 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
             metrics (Dict[str, float]): evaluation metrics.
             infos (List[Dict[str, Any]]): evaluation information for visualization.
         """
-    def _eval_mcqa(self, results: List[Dict[str, Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
+
+    def _eval_mcqa(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
         """
         Compute the evaluation metrics for multiple-choice question answering tasks.
 
@@ -263,18 +278,18 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
 
             overall_samples.append(int(matching))
 
-            infos.append(
-                {
-                    **data,
-                    "ground_truth": ground_truth,
-                    "matching": matching,
-                    "task_type": task_type,
-                    "meta_data": filter_metadata(meta_data),
-                }
-            )
+            infos.append({
+                **data,
+                "ground_truth": ground_truth,
+                "matching": matching,
+                "task_type": task_type,
+                "meta_data": filter_metadata(meta_data),
+            })
 
         task_types = samples.keys()
-        metrics = {x: sum(samples[x]) / len(samples[x]) * 100 for x in task_types}
+        metrics = {
+            x: sum(samples[x]) / len(samples[x]) * 100 for x in task_types
+        }
 
         # overall_samples = sum(samples.values(), [])
         overall_acc = sum(overall_samples) / len(overall_samples) * 100
@@ -283,7 +298,10 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
         infos = [metrics] + infos
         return metrics, infos
 
-    def _eval_oqa(self, results: List[Dict[str, Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
+    def _eval_oqa(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
         """
         Compute the evaluation metrics for open-ended question answering tasks.
 
@@ -303,20 +321,21 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
             score = data["score"]
 
             samples.append(score)
-            infos.append(
-                {
-                    **data,
-                    "score": score,
-                    "meta_data": filter_metadata(meta_data),
-                }
-            )
+            infos.append({
+                **data,
+                "score": score,
+                "meta_data": filter_metadata(meta_data),
+            })
 
         metrics = {"Overall": sum(samples) / len(samples)}
 
         infos = [metrics] + infos
         return metrics, infos
 
-    def _eval_temporal_grounding(self, results: List[Dict[str, Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
+    def _eval_temporal_grounding(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (Dict[str, float], List[Dict[str, Any]]):
         ious, infos = [], []
 
         for data in results:
@@ -328,26 +347,28 @@ class BaseEvalDataset(Dataset, metaclass=ABCMeta):
             union = gt_interval[1] - gt_interval[0]
             for pred_interval in data["prediction"]:
                 start_time, end_time = min(pred_interval), max(pred_interval)
-                intersection += max(0, min(end_time, gt_interval[1]) - max(start_time, gt_interval[0]))
+                intersection += max(
+                    0,
+                    min(end_time, gt_interval[1]) -
+                    max(start_time, gt_interval[0]))
                 union += end_time - start_time
             union = union - intersection
             iou = intersection / union
 
             ious.append(iou)
-            infos.append(
-                {
-                    **data,
-                    "ground_truth": gt_interval,
-                    "iou": iou,
-                    "meta_data": filter_metadata(meta_data),
-                }
-            )
+            infos.append({
+                **data,
+                "ground_truth": gt_interval,
+                "iou": iou,
+                "meta_data": filter_metadata(meta_data),
+            })
 
         metrics = {
             "mIoU": sum(ious) / len(ious) * 100,
         }
         for thred in [0.3, 0.5, 0.7]:
-            metrics[f"R1@{thred}"] = sum(iou >= thred for iou in ious) / len(ious) * 100
+            metrics[f"R1@{thred}"] = sum(
+                iou >= thred for iou in ious) / len(ious) * 100
 
         infos = [metrics] + infos
         return metrics, infos

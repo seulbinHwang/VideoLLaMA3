@@ -49,9 +49,7 @@ from transformers.image_utils import (
 )
 from transformers.utils import TensorType, is_vision_available, logging
 
-
 logger = logging.get_logger(__name__)
-
 
 if is_vision_available():
     from PIL import Image
@@ -80,7 +78,9 @@ def make_batched_images(images) -> List[List[ImageInput]]:
     """
     if isinstance(images, (list, tuple)):
         # list of images/videos
-        if not all(is_valid_video(image) or is_valid_image(image) for image in images):
+        if not all(
+                is_valid_video(image) or is_valid_image(image)
+                for image in images):
             raise ValueError(f"Could not make batched images from {images}")
         return images
     elif is_valid_video(images) or is_valid_image(images):
@@ -90,9 +90,11 @@ def make_batched_images(images) -> List[List[ImageInput]]:
     raise ValueError(f"Could not make batched images from {images}")
 
 
-def simple_batched_resize(
-    images, factor: int = 28, min_tokens: int = 4 * 4, max_tokens: int = 16384, input_data_format: str = None
-):
+def simple_batched_resize(images,
+                          factor: int = 28,
+                          min_tokens: int = 4 * 4,
+                          max_tokens: int = 16384,
+                          input_data_format: str = None):
     min_pixels = min_tokens * factor * factor
     max_pixels = max_tokens * factor * factor
 
@@ -131,9 +133,11 @@ def simple_batched_resize(
     return image_sizes
 
 
-def batched_resize(
-    images, factors: List[int], min_tokens: int = 4 * 4, max_tokens: int = 16384, input_data_format: str = None
-):
+def batched_resize(images,
+                   factors: List[int],
+                   min_tokens: int = 4 * 4,
+                   max_tokens: int = 16384,
+                   input_data_format: str = None):
     image_sizes = []
     for image in images:
         if is_valid_video(image):
@@ -151,7 +155,8 @@ def batched_resize(
     smart_scale_factors = 1.0
     total_tokens = 0
     for (num_frame, height, width), factor in zip(image_sizes, factors):
-        total_tokens += num_frame * math.ceil(height / factor) * math.ceil(width / factor)
+        total_tokens += num_frame * math.ceil(height / factor) * math.ceil(
+            width / factor)
 
     # TODO: add min_pixels
     if total_tokens > max_tokens:
@@ -308,19 +313,24 @@ class Videollama3ImageProcessor(BaseImageProcessor):
         for image in images:
             if do_resize:
                 resized_height, resized_width = target_size
-                image = resize(
-                    image, size=(resized_height, resized_width), resample=resample, input_data_format=input_data_format
-                )
+                image = resize(image,
+                               size=(resized_height, resized_width),
+                               resample=resample,
+                               input_data_format=input_data_format)
 
             if do_rescale:
-                image = self.rescale(image, scale=rescale_factor, input_data_format=input_data_format)
+                image = self.rescale(image,
+                                     scale=rescale_factor,
+                                     input_data_format=input_data_format)
 
             if do_normalize:
-                image = self.normalize(
-                    image=image, mean=image_mean, std=image_std, input_data_format=input_data_format
-                )
+                image = self.normalize(image=image,
+                                       mean=image_mean,
+                                       std=image_std,
+                                       input_data_format=input_data_format)
 
-            image = to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format)
+            image = to_channel_dimension_format(
+                image, data_format, input_channel_dim=input_data_format)
             processed_images.append(image)
 
         patches = np.array(processed_images)
@@ -341,8 +351,7 @@ class Videollama3ImageProcessor(BaseImageProcessor):
         )
         patches = patches.transpose(0, 2, 5, 3, 6, 1, 4, 7)
         flatten_patches = patches.reshape(
-            t * grid_h * grid_w, channel * self.patch_size * self.patch_size
-        )
+            t * grid_h * grid_w, channel * self.patch_size * self.patch_size)
 
         return flatten_patches, (t, grid_h, grid_w)
 
@@ -418,7 +427,8 @@ class Videollama3ImageProcessor(BaseImageProcessor):
         images = make_batched_images(images)
 
         if isinstance(merge_size, (list, tuple)):
-            assert len(merge_size) == len(images), "Merge size must be the same length as images."
+            assert len(merge_size) == len(
+                images), "Merge size must be the same length as images."
             merge_sizes = merge_size
         else:
             merge_sizes = [merge_size for _ in images]
@@ -434,14 +444,17 @@ class Videollama3ImageProcessor(BaseImageProcessor):
         else:
             target_sizes = batched_resize(
                 images,
-                factors=[self.patch_size * merge_size for merge_size in merge_sizes],
+                factors=[
+                    self.patch_size * merge_size for merge_size in merge_sizes
+                ],
                 min_tokens=self.min_tokens,
                 max_tokens=self.max_tokens,
                 input_data_format=input_data_format,
             )
 
         pixel_values, grid_sizes = [], []
-        for image, merge_size, target_size in zip(images, merge_sizes, target_sizes):
+        for image, merge_size, target_size in zip(images, merge_sizes,
+                                                  target_sizes):
             patches, grid_size = self._preprocess(
                 image,
                 target_size=target_size,

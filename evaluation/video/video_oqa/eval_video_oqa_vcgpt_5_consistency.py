@@ -10,11 +10,9 @@ from openai import AzureOpenAI
 
 
 def init():
-    client = AzureOpenAI(
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
-        api_key=os.getenv("AZURE_OPENAI_KEY"),  
-        api_version="2024-02-15-preview"
-    )
+    client = AzureOpenAI(azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                         api_key=os.getenv("AZURE_OPENAI_KEY"),
+                         api_version="2024-02-15-preview")
 
     return client
 
@@ -22,14 +20,13 @@ def init():
 def interaction(client, message_text):
     completion = client.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYNAME"),
-        messages = message_text,
+        messages=message_text,
         temperature=0.7,
         max_tokens=800,
         top_p=0.95,
         frequency_penalty=0,
         presence_penalty=0,
-        stop=None
-    )
+        stop=None)
 
     return completion
 
@@ -41,7 +38,7 @@ def annotate(prediction_set, caption_files, output_dir, args):
     """
 
     for file in tqdm(caption_files):
-        key = file[:-5] # Strip file extension
+        key = file[:-5]  # Strip file extension
         qa_set = prediction_set[key]
         question1 = qa_set['q1']
         question2 = qa_set['q2']
@@ -49,35 +46,32 @@ def annotate(prediction_set, caption_files, output_dir, args):
         pred1 = qa_set['p1']
         pred2 = qa_set['p2']
         try:
-            message = [
-                    {
-                        "role": "system",
-                        "content":
-                            "You are an intelligent chatbot designed for evaluating the consistency of generative outputs for similar video-based question-answer pairs. "
-                            "You will be given two very similar questions, a common answer common to both the questions and predicted answers for the two questions ."
-                            "Your task is to compare the predicted answers for two very similar question, with a common correct answer and determine if they are consistent. Here's how you can accomplish the task:"
-                            "------"
-                            "##INSTRUCTIONS: "
-                            "- Focus on the consistency between the two predicted answers and the correct answer. Both predicted answers should correspond to the correct answer and to each other, and should not contain any contradictions or significant differences in the conveyed information.\n"
-                            "- Both predicted answers must be consistent with each other and the correct answer, in terms of the information they provide about the video content.\n"
-                            "- Consider synonyms or paraphrases as valid matches, but only if they maintain the consistency in the conveyed information.\n"
-                            "- Evaluate the consistency of the two predicted answers compared to the correct answer."
-                    },
-                    {
-                        "role": "user",
-                        "content":
-                            "Please evaluate the following video-based question-answer pair:\n\n"
-                            f"Question 1: {question1}\n"
-                            f"Question 2: {question2}\n"
-                            f"Correct Answer: {answer}\n"
-                            f"Predicted Answer to Question 1: {pred1}\n"
-                            f"Predicted Answer to Question 2: {pred2}\n\n"
-                            "Provide your evaluation only as a consistency score where the consistency score is an integer value between 0 and 5, with 5 indicating the highest level of consistency. "
-                            "Please generate the response in the form of a Python dictionary string with keys 'score', where its value is the consistency score in INTEGER, not STRING."
-                            "DO NOT PROVIDE ANY OTHER OUTPUT TEXT OR EXPLANATION. Only provide the Python dictionary string. "
-                            "For example, your response should look like this: {''score': 4.8}."
-                    }
-                ]
+            message = [{
+                "role": "system",
+                "content":
+                    "You are an intelligent chatbot designed for evaluating the consistency of generative outputs for similar video-based question-answer pairs. "
+                    "You will be given two very similar questions, a common answer common to both the questions and predicted answers for the two questions ."
+                    "Your task is to compare the predicted answers for two very similar question, with a common correct answer and determine if they are consistent. Here's how you can accomplish the task:"
+                    "------"
+                    "##INSTRUCTIONS: "
+                    "- Focus on the consistency between the two predicted answers and the correct answer. Both predicted answers should correspond to the correct answer and to each other, and should not contain any contradictions or significant differences in the conveyed information.\n"
+                    "- Both predicted answers must be consistent with each other and the correct answer, in terms of the information they provide about the video content.\n"
+                    "- Consider synonyms or paraphrases as valid matches, but only if they maintain the consistency in the conveyed information.\n"
+                    "- Evaluate the consistency of the two predicted answers compared to the correct answer."
+            }, {
+                "role": "user",
+                "content":
+                    "Please evaluate the following video-based question-answer pair:\n\n"
+                    f"Question 1: {question1}\n"
+                    f"Question 2: {question2}\n"
+                    f"Correct Answer: {answer}\n"
+                    f"Predicted Answer to Question 1: {pred1}\n"
+                    f"Predicted Answer to Question 2: {pred2}\n\n"
+                    "Provide your evaluation only as a consistency score where the consistency score is an integer value between 0 and 5, with 5 indicating the highest level of consistency. "
+                    "Please generate the response in the form of a Python dictionary string with keys 'score', where its value is the consistency score in INTEGER, not STRING."
+                    "DO NOT PROVIDE ANY OTHER OUTPUT TEXT OR EXPLANATION. Only provide the Python dictionary string. "
+                    "For example, your response should look like this: {''score': 4.8}."
+            }]
 
             completion = interaction(client, message)
             # Convert response to a Python dictionary.
@@ -94,7 +88,9 @@ def annotate(prediction_set, caption_files, output_dir, args):
 
 
 def main(args):
-    pred_contents = [eval(line) for line in open(args.pred_path, 'r').readlines()]
+    pred_contents = [
+        eval(line) for line in open(args.pred_path, 'r').readlines()
+    ]
 
     # Dictionary to store the count of occurrences for each video_id
     video_id_counts = {}
@@ -131,7 +127,13 @@ def main(args):
         answer = sample['A']
         pred1 = sample['P1']
         pred2 = sample['P2']
-        qa_set = {"q1": question1, "q2": question2, "a": answer, "p1": pred1, "p2": pred2}
+        qa_set = {
+            "q1": question1,
+            "q2": question2,
+            "a": answer,
+            "p1": pred1,
+            "p2": pred2
+        }
         prediction_set[id] = qa_set
 
     # Set the OpenAI API key.
@@ -146,7 +148,9 @@ def main(args):
             print(f"completed_files: {len(completed_files)}")
 
             # Files that have not been processed yet.
-            incomplete_files = [f for f in caption_files if f not in completed_files]
+            incomplete_files = [
+                f for f in caption_files if f not in completed_files
+            ]
             print(f"incomplete_files: {len(incomplete_files)}")
 
             # Break the loop when there are no incomplete files
@@ -157,14 +161,18 @@ def main(args):
 
             # Split tasks into parts.
             part_len = len(incomplete_files) // num_tasks
-            all_parts = [incomplete_files[i:i + part_len] for i in range(0, len(incomplete_files), part_len)]
-            task_args = [(prediction_set, part, args.output_dir, args) for part in all_parts]
+            all_parts = [
+                incomplete_files[i:i + part_len]
+                for i in range(0, len(incomplete_files), part_len)
+            ]
+            task_args = [(prediction_set, part, args.output_dir, args)
+                         for part in all_parts]
 
             # Use a pool of workers to process the files in parallel.
             with Pool() as pool:
                 pool.starmap(annotate, task_args)
 
-        except Exception as e: 
+        except Exception as e:
             print(f"Error: {e}")
 
     # Combine all the processed files into one
@@ -198,14 +206,34 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="question-answer-generation-using-gpt-3")
-    parser.add_argument("--pred-path", required=True, help="The path to file containing prediction.")
-    parser.add_argument("--output-dir", required=True, help="The path to save annotation json files.")
-    parser.add_argument("--output-json", required=True, help="The path to save annotation final combined json file.")
-    parser.add_argument("--num-tasks", required=True, type=int, help="Number of splits.")
-    parser.add_argument("--api-key", required=True, type=str, help="Azure Openai API key.")
-    parser.add_argument("--api-endpoint", required=True, type=str, help="Azure Openai API endpoint.")
-    parser.add_argument("--api-deployname", required=True, type=str, help="Azure Openai API deployname.")
+    parser = argparse.ArgumentParser(
+        description="question-answer-generation-using-gpt-3")
+    parser.add_argument("--pred-path",
+                        required=True,
+                        help="The path to file containing prediction.")
+    parser.add_argument("--output-dir",
+                        required=True,
+                        help="The path to save annotation json files.")
+    parser.add_argument(
+        "--output-json",
+        required=True,
+        help="The path to save annotation final combined json file.")
+    parser.add_argument("--num-tasks",
+                        required=True,
+                        type=int,
+                        help="Number of splits.")
+    parser.add_argument("--api-key",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API key.")
+    parser.add_argument("--api-endpoint",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API endpoint.")
+    parser.add_argument("--api-deployname",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API deployname.")
     args = parser.parse_args()
 
     # Set the OpenAI API key.

@@ -27,11 +27,13 @@ class VideoMMEDataset(BaseEvalDataset):
         for record in df.itertuples():
             video_id = record.videoID
             for video_format in ["mp4", "avi", "mov", "mkv"]:
-                temp_path = os.path.join(video_folder, f"{video_id}.{video_format}")
+                temp_path = os.path.join(video_folder,
+                                         f"{video_id}.{video_format}")
                 if os.path.exists(temp_path):
                     video_path = temp_path
                     break
-            assert os.path.exists(video_path), f"Cannot find the video file: {video_id}"
+            assert os.path.exists(
+                video_path), f"Cannot find the video file: {video_id}"
 
             meta_data = {
                 # required fields for data loading
@@ -63,7 +65,8 @@ class VideoMMEDataset(BaseEvalDataset):
 
         return data_dict
 
-    def generate_instruction(self, data_id: Union[int, str], timestamps: List[float]) -> Dict[str, str]:
+    def generate_instruction(self, data_id: Union[int, str],
+                             timestamps: List[float]) -> Dict[str, str]:
         meta_data = self.data_dict[data_id]
         question = meta_data["question"]
         options = meta_data["options"]
@@ -107,7 +110,10 @@ class VideoMMEDataset(BaseEvalDataset):
         return instruction
 
     def process_response(self, data_id: Union[int, str], response: str) -> str:
-        options = [re.findall('[A-D]\. (.*).', x)[0] for x in self.data_dict[data_id]["options"]]
+        options = [
+            re.findall('[A-D]\. (.*).', x)[0]
+            for x in self.data_dict[data_id]["options"]
+        ]
         letters = ['A', 'B', 'C', 'D']
         digit2word = {
             '1': 'one',
@@ -135,7 +141,8 @@ class VideoMMEDataset(BaseEvalDataset):
                 opt2 = opt
                 if opt in digit2word:
                     opt2 = digit2word[opt]
-                if opt.lower() in response.lower() or opt2.lower() in response.lower():
+                if opt.lower() in response.lower() or opt2.lower(
+                ) in response.lower():
                     pred_idx = idx
                     find_flag = True
                     break
@@ -163,15 +170,19 @@ class VideoMMEDataset(BaseEvalDataset):
             prediction = prediction.replace(answer_prefix, "")
 
         if len(prediction.split()) > 10 and not re.search("[ABCD]", prediction):
-            raise ValueError(f"Cannot find the answer in the options: {prediction}")
+            raise ValueError(
+                f"Cannot find the answer in the options: {prediction}")
         matches = re.search(r'[ABCD]', prediction)
         if matches is None:
-            raise ValueError(f"Cannot find the answer in the options: {prediction}")
+            raise ValueError(
+                f"Cannot find the answer in the options: {prediction}")
         prediction = matches[0]
 
         return prediction
 
-    def evaluate(self, results: List[Dict[str, Any]]) -> (Dict[str, Dict[str, float]], Dict[str, List[Dict[str, Any]]]):
+    def evaluate(
+        self, results: List[Dict[str, Any]]
+    ) -> (Dict[str, Dict[str, float]], Dict[str, List[Dict[str, Any]]]):
         results_wo_sub, results_w_sub = [], []
         for data in results:
             if "subtitles" in self.data_dict[data["data_id"]]:
@@ -180,6 +191,8 @@ class VideoMMEDataset(BaseEvalDataset):
                 results_wo_sub.append(data)
 
         metrics, infos = {}, {}
-        metrics["without_subtitle"], infos["without_subtitle"] = super().evaluate(results_wo_sub)
-        metrics["with_subtitle"], infos["with_subtitle"] = super().evaluate(results_w_sub)
+        metrics["without_subtitle"], infos["without_subtitle"] = super(
+        ).evaluate(results_wo_sub)
+        metrics["with_subtitle"], infos["with_subtitle"] = super().evaluate(
+            results_w_sub)
         return metrics, infos

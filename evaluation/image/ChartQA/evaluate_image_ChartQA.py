@@ -76,13 +76,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    results_file = args.results_file.replace('.json', args.test_file).replace('jsonl', 'json')
+    results_file = args.results_file.replace('.json', args.test_file).replace(
+        'jsonl', 'json')
 
     # read results
     if args.num_chunks > 1:
         results = {}
         for _idx in range(args.num_chunks):
-            file = results_file.replace('.json', f'_{args.num_chunks}_{_idx}.json')
+            file = results_file.replace('.json',
+                                        f'_{args.num_chunks}_{_idx}.json')
             results.update(read_json(file))
     else:
         results = read_json(results_file)
@@ -90,4 +92,3 @@ if __name__ == '__main__':
     acc = evaluate_relaxed_accuracy(results)
 
     print(f'overall accuracy: {args.test_file}, {acc}')
-

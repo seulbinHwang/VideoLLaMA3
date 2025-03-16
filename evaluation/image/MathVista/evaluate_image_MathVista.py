@@ -4,6 +4,7 @@ import os
 import re
 
 import sys
+
 sys.path.append('./')
 
 import pandas as pd
@@ -19,6 +20,7 @@ from openai import AzureOpenAI
 # test
 
 from evaluation.image.MathVista.ext_ans import demo_prompt
+
 
 def read_json(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -47,10 +49,12 @@ def create_test_prompt(demo_prompt, query, response):
     return full_prompt
 
 
-def get_chat_response(promot, n=1, patience=10000000,
- sleep_time=0):
+def get_chat_response(promot, n=1, patience=10000000, sleep_time=0):
     messages = [
-        {"role": "user", "content": promot},
+        {
+            "role": "user",
+            "content": promot
+        },
     ]
     # print("I am here")
     while patience > 0:
@@ -62,7 +66,10 @@ def get_chat_response(promot, n=1, patience=10000000,
                 if prediction != "" and prediction != None:
                     return prediction
             else:
-                prediction = [choice.message.content.strip() for choice in response.choices]
+                prediction = [
+                    choice.message.content.strip()
+                    for choice in response.choices
+                ]
                 if prediction[0] != "" and prediction[0] != None:
                     return prediction
 
@@ -77,20 +84,21 @@ def get_chat_response(promot, n=1, patience=10000000,
                 new_start = len(promot) - new_size
                 promot = promot[new_start:]
                 messages = [
-                    {"role": "user", "content": promot},
+                    {
+                        "role": "user",
+                        "content": promot
+                    },
                 ]
-                
+
             if sleep_time > 0:
                 time.sleep(sleep_time)
     return ""
 
 
 def init():
-    client = AzureOpenAI(
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
-        api_key=os.getenv("AZURE_OPENAI_KEY"),  
-        api_version="2024-02-15-preview"
-    )
+    client = AzureOpenAI(azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                         api_key=os.getenv("AZURE_OPENAI_KEY"),
+                         api_version="2024-02-15-preview")
 
     return client
 
@@ -98,14 +106,13 @@ def init():
 def interaction(client, message_text):
     completion = client.chat.completions.create(
         model=os.getenv("AZURE_OPENAI_DEPLOYNAME"),
-        messages = message_text,
+        messages=message_text,
         temperature=0.7,
         max_tokens=800,
         top_p=0.95,
         frequency_penalty=0,
         presence_penalty=0,
-        stop=None
-    )
+        stop=None)
 
     return completion
 
@@ -129,14 +136,14 @@ def extract_answer(response, problem, quick_extract=False):
             return str(extraction)
         except:
             pass
-    
+
     if answer_type == "float":
         try:
             extraction = str(float(response))
             return extraction
         except:
             pass
-    
+
     # quick extraction
     if quick_extract:
         print("Quickly extracting answer...")
@@ -148,7 +155,7 @@ def extract_answer(response, problem, quick_extract=False):
                 return extraction
         except:
             pass
-        
+
     # general extraction
     try:
         full_prompt = create_test_prompt(demo_prompt, query, response)
@@ -167,7 +174,8 @@ def extract_all_answers(args):
     if args.num_chunks > 1:
         results = {}
         for _idx in range(args.num_chunks):
-            file = args.results_file.replace('.json', f'_{args.num_chunks}_{_idx}.json')
+            file = args.results_file.replace('.json',
+                                             f'_{args.num_chunks}_{_idx}.json')
             results.update(read_json(file))
     else:
         results = read_json(args.results_file)
@@ -187,7 +195,7 @@ def extract_all_answers(args):
         assert label in problem
         response = problem[label]
 
-        extraction  = extract_answer(response, problem, args.quick_extract)
+        extraction = extract_answer(response, problem, args.quick_extract)
         results[pid]['extraction'] = extraction
 
         if i % args.save_every == 0 or i == test_num - 1:
@@ -198,7 +206,8 @@ def extract_all_answers(args):
     return results
 
 
-def normalize_extracted_answer(extraction, choices, question_type, answer_type, precision):
+def normalize_extracted_answer(extraction, choices, question_type, answer_type,
+                               precision):
     """
     Normalize the extracted answer to match the answer type
     """
@@ -262,7 +271,6 @@ def safe_equal(prediction, answer):
         return False
 
 
-
 def get_acc_with_contion(res_pd, key, value):
     if key == 'skills':
         # if value in res_pd[key]:
@@ -293,11 +301,12 @@ def calculate_scores(args, results):
         precision = problem['precision']
         extraction = problem['extraction']
 
-
         answer = problem['answer']
 
         # normalize the extracted answer to match the answer type
-        prediction = normalize_extracted_answer(extraction, choices, question_type, answer_type, precision)
+        prediction = normalize_extracted_answer(extraction, choices,
+                                                question_type, answer_type,
+                                                precision)
 
         # verify the prediction is true or false
         true_false = safe_equal(prediction, answer)
@@ -333,7 +342,13 @@ def calculate_scores(args, results):
     accuracy = str(round(correct / total * 100, 2))
     print(f"\nCorrect: {correct}, Total: {total}, Accuracy: {accuracy}%")
 
-    scores = {"average": {"accuracy": accuracy, "correct": correct, "total": total}}
+    scores = {
+        "average": {
+            "accuracy": accuracy,
+            "correct": correct,
+            "total": total
+        }
+    }
 
     ## [3] Calculate the fine-grained accuracy scores
 
@@ -349,7 +364,10 @@ def calculate_scores(args, results):
     # assert len(df) == 1000 # Important!!!
 
     # asign the target keys for evaluation
-    target_keys = ['question_type', 'answer_type', 'language', 'source', 'category', 'task', 'context', 'grade', 'skills']
+    target_keys = [
+        'question_type', 'answer_type', 'language', 'source', 'category',
+        'task', 'context', 'grade', 'skills'
+    ]
 
     for key in target_keys:
         print(f"\nType: [{key}]")
@@ -370,10 +388,17 @@ def calculate_scores(args, results):
             correct, total, acc = get_acc_with_contion(df, key, value)
             if total > 0:
                 print(f"[{value}]: {acc}% ({correct}/{total})")
-                scores[key][value] = {"accuracy": acc, "correct": correct, "total": total}
+                scores[key][value] = {
+                    "accuracy": acc,
+                    "correct": correct,
+                    "total": total
+                }
 
         # sort the scores by accuracy
-        scores[key] = dict(sorted(scores[key].items(), key=lambda item: float(item[1]['accuracy']), reverse=True))
+        scores[key] = dict(
+            sorted(scores[key].items(),
+                   key=lambda item: float(item[1]['accuracy']),
+                   reverse=True))
 
     # save the scores
     # scores_file = os.path.join(args.output_dir, args.score_file)
@@ -407,21 +432,38 @@ if __name__ == '__main__':
     # input
     parser.add_argument('--results-file', type=str, required=True)
     parser.add_argument('--output-file', type=str, required=True)
-    parser.add_argument('--response_label', type=str, default='response', help='response label for the input file')
+    parser.add_argument('--response_label',
+                        type=str,
+                        default='response',
+                        help='response label for the input file')
     # # model
     # parser.add_argument('--llm_engine', type=str, default='gpt-4-0613', help='llm engine',
     #                     choices = ['gpt-3.5-turbo', 'gpt-3.5', 'gpt-4', 'gpt-4-0314', 'gpt-4-0613'])
     # parser.add_argument('--number', type=int, default=-1, help='number of problems to run')
-    parser.add_argument('--quick_extract', action='store_true', help='use rules to extract answer for some problems')
+    parser.add_argument('--quick_extract',
+                        action='store_true',
+                        help='use rules to extract answer for some problems')
     # parser.add_argument('--rerun', action='store_true', help='rerun the answer extraction')
     # # output
-    parser.add_argument('--save_every', type=int, default=10, help='save every n problems')
+    parser.add_argument('--save_every',
+                        type=int,
+                        default=10,
+                        help='save every n problems')
     parser.add_argument("--num-chunks", type=int, default=1)
     parser.add_argument('--scores-file', type=str, default='scores.json')
     # parser.add_argument('--output_label', type=str, default='', help='label for the output file')
-    parser.add_argument("--api-key", required=True, type=str, help="Azure Openai API key.")
-    parser.add_argument("--api-endpoint", required=True, type=str, help="Azure Openai API endpoint.")
-    parser.add_argument("--api-deployname", required=True, type=str, help="Azure Openai API deployname.")
+    parser.add_argument("--api-key",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API key.")
+    parser.add_argument("--api-endpoint",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API endpoint.")
+    parser.add_argument("--api-deployname",
+                        required=True,
+                        type=str,
+                        help="Azure Openai API deployname.")
     args = parser.parse_args()
 
     # Set the OpenAI API key.

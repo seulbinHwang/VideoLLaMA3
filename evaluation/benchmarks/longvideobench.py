@@ -20,18 +20,18 @@ def timestamp_to_seconds(timestamp):
     return total_seconds
 
 
-def insert_subtitles_into_frames(frames, frame_timestamps, subtitles, 
+def insert_subtitles_into_frames(frames, frame_timestamps, subtitles,
                                  starting_timestamp_for_subtitles, duration):
     interleaved_list = []
     cur_i = 0
-    
+
     for subtitle in subtitles:
         if "timestamp" in subtitle:
             start, end = subtitle["timestamp"]
 
             if not isinstance(end, float):
                 end = duration
-                
+
             start -= starting_timestamp_for_subtitles
             end -= starting_timestamp_for_subtitles
 
@@ -44,17 +44,18 @@ def insert_subtitles_into_frames(frames, frame_timestamps, subtitles,
             end = timestamp_to_seconds(end)
             start -= starting_timestamp_for_subtitles
             end -= starting_timestamp_for_subtitles
-            
+
             subtitle_timestamp = (start + end) / 2
             subtitle_text = subtitle["line"]
 
-        for i, (frame, frame_timestamp) in enumerate(zip(frames[cur_i:], frame_timestamps[cur_i:])):
-                if frame_timestamp <= subtitle_timestamp:
-                    # print("frame:", frame_timestamp)
-                    interleaved_list.append(frame)
-                    cur_i += 1
-                else:
-                    break
+        for i, (frame, frame_timestamp) in enumerate(
+                zip(frames[cur_i:], frame_timestamps[cur_i:])):
+            if frame_timestamp <= subtitle_timestamp:
+                # print("frame:", frame_timestamp)
+                interleaved_list.append(frame)
+                cur_i += 1
+            else:
+                break
 
         if end - start < 1:
             end = subtitle_timestamp + 0.5
@@ -72,11 +73,12 @@ def insert_subtitles_into_frames(frames, frame_timestamps, subtitles,
         else:
             pass
             # print("leaving out subtitle:", start, end)
-        
-    for i, (frame, frame_timestamp) in enumerate(zip(frames[cur_i:], frame_timestamps[cur_i:])):
+
+    for i, (frame, frame_timestamp) in enumerate(
+            zip(frames[cur_i:], frame_timestamps[cur_i:])):
         # print(frame_timestamp)
         interleaved_list.append(frame)
-        
+
     return interleaved_list
 
 
@@ -96,29 +98,45 @@ class LongVideoBenchDataset(BaseEvalDataset):
         lengths = []
         for record in records:
             video_path = os.path.join(video_folder, record["video_path"])
-            assert os.path.exists(video_path), f"Cannot find the video file: {video_path}"
+            assert os.path.exists(
+                video_path), f"Cannot find the video file: {video_path}"
 
-            subtitle_path = os.path.join(subtitle_folder, record["subtitle_path"])
+            subtitle_path = os.path.join(subtitle_folder,
+                                         record["subtitle_path"])
             subtitle = json.load(open(subtitle_path, 'r'))
 
             meta_data = {
                 # required fields for data loading
-                "video_path": video_path,
-                "start_time": None,
-                "end_time": None,
+                "video_path":
+                    video_path,
+                "start_time":
+                    None,
+                "end_time":
+                    None,
                 # required fields for evaluation
-                "task_type": record["question_category"],
-                "level": record["level"],
-                "question_category": record["question_category"],
-                "topic_category": record["topic_category"],
-                "duration_group": record["duration_group"],
-                "ground_truth": chr(ord("A") + record["correct_choice"]),
+                "task_type":
+                    record["question_category"],
+                "level":
+                    record["level"],
+                "question_category":
+                    record["question_category"],
+                "topic_category":
+                    record["topic_category"],
+                "duration_group":
+                    record["duration_group"],
+                "ground_truth":
+                    chr(ord("A") + record["correct_choice"]),
                 # custom fields for instruction generation and post processing
-                "question": record["question"],
-                "options": list(record["candidates"]),
-                "subtitle": subtitle,
-                "starting_timestamp_for_subtitles": record["starting_timestamp_for_subtitles"],
-                "duration": record["duration"],
+                "question":
+                    record["question"],
+                "options":
+                    list(record["candidates"]),
+                "subtitle":
+                    subtitle,
+                "starting_timestamp_for_subtitles":
+                    record["starting_timestamp_for_subtitles"],
+                "duration":
+                    record["duration"],
             }
 
             data_dict[idx] = meta_data
@@ -127,7 +145,9 @@ class LongVideoBenchDataset(BaseEvalDataset):
 
         return data_dict
 
-    def generate_instruction(self, data_id: Union[int, str], video_text_interleave_list, timestamps: Any) -> Dict[str, str]:
+    def generate_instruction(self, data_id: Union[int, str],
+                             video_text_interleave_list,
+                             timestamps: Any) -> Dict[str, str]:
         meta_data = self.data_dict[data_id]
         question = meta_data["question"]
         options = meta_data["options"]
@@ -135,8 +155,13 @@ class LongVideoBenchDataset(BaseEvalDataset):
         instruction = []
 
         instruction += ["Question: " + question]
-        instruction += [". ".join([chr(ord("A")+i), candidate]) for i, candidate in enumerate(options)]
-        instruction += ["Answer with the option's letter from the given choices directly."]
+        instruction += [
+            ". ".join([chr(ord("A") + i), candidate])
+            for i, candidate in enumerate(options)
+        ]
+        instruction += [
+            "Answer with the option's letter from the given choices directly."
+        ]
         instruction = "\n".join(instruction)
 
         video_text_interleave_list.append(instruction.strip())
@@ -148,14 +173,16 @@ class LongVideoBenchDataset(BaseEvalDataset):
         for ele in video_text_interleave_list:
             if isinstance(ele, str):
                 if len(cur_frames) > 0:
-                    content_list.append(
-                        {
-                            "type": "video",
-                            "data": cur_frames,
-                            "num_frames": len(cur_frames),
-                            "timestamps": timestamps[frame_idx-len(cur_frames):frame_idx]
-                        }
-                    )
+                    content_list.append({
+                        "type":
+                            "video",
+                        "data":
+                            cur_frames,
+                        "num_frames":
+                            len(cur_frames),
+                        "timestamps":
+                            timestamps[frame_idx - len(cur_frames):frame_idx]
+                    })
                     cur_frames = []
                 content_list.append({"type": "text", "data": ele})
 
@@ -163,21 +190,25 @@ class LongVideoBenchDataset(BaseEvalDataset):
                 cur_frames.append(ele)
                 frame_idx += 1
 
-        conversation = [
-            {
-                "role": "user",
-                "content": content_list,
-            }
-        ]
+        conversation = [{
+            "role": "user",
+            "content": content_list,
+        }]
 
         inputs = self.processor(conversation=conversation, return_tensors="pt"),
 
         # reduce batch dimension
         inputs = inputs[0]
 
-        text_inputs  = {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]}
+        text_inputs = {
+            "input_ids": inputs["input_ids"],
+            "attention_mask": inputs["attention_mask"]
+        }
         # image_inputs = {"images": inputs["images"], "grid_sizes": inputs["grid_sizes"]}
-        image_inputs = {"pixel_values_videos": inputs["pixel_values_videos"], "video_grid_thw": inputs["video_grid_thw"]}
+        image_inputs = {
+            "pixel_values_videos": inputs["pixel_values_videos"],
+            "video_grid_thw": inputs["video_grid_thw"]
+        }
 
         return text_inputs, image_inputs
 
@@ -199,8 +230,12 @@ class LongVideoBenchDataset(BaseEvalDataset):
         for data_id in aggregated_data["data_ids"]:
             meta_data = self.data_dict[data_id]
             subtitle = meta_data["subtitle"]
-            video_text_interleave_list = insert_subtitles_into_frames(frames, timestamps, subtitle, meta_data["starting_timestamp_for_subtitles"], meta_data["duration"])
-            text_input, image_input = self.generate_instruction(data_id, video_text_interleave_list, timestamps)
+            video_text_interleave_list = insert_subtitles_into_frames(
+                frames, timestamps, subtitle,
+                meta_data["starting_timestamp_for_subtitles"],
+                meta_data["duration"])
+            text_input, image_input = self.generate_instruction(
+                data_id, video_text_interleave_list, timestamps)
             text_inputs.append(text_input)
             image_inputs = image_input
 
@@ -231,7 +266,8 @@ class LongVideoBenchDataset(BaseEvalDataset):
 
         response = response.replace("answer", "")
         response = response.replace("Answer", "")
-        pred_answer = re.findall(f"[\(\ \[]*([{letters[0]}-{letters[-1]}])[\)\.\ \]]*", response)
+        pred_answer = re.findall(
+            f"[\(\ \[]*([{letters[0]}-{letters[-1]}])[\)\.\ \]]*", response)
 
         find_flag = False
         if len(pred_answer) == 0:
@@ -242,7 +278,8 @@ class LongVideoBenchDataset(BaseEvalDataset):
                 opt2 = opt
                 if opt in digit2word:
                     opt2 = digit2word[opt]
-                if opt.lower() in response.lower() or opt2.lower() in response.lower():
+                if opt.lower() in response.lower() or opt2.lower(
+                ) in response.lower():
                     pred_idx = idx
                     find_flag = True
                     break
@@ -269,23 +306,36 @@ class LongVideoBenchDataset(BaseEvalDataset):
         for answer_prefix in answer_prefixes:
             prediction = prediction.replace(answer_prefix, "")
 
-        if len(prediction.split()) > 10 and not re.search(f"[{letters[0]}-{letters[-1]}]", prediction):
-            raise ValueError(f"Cannot find the answer in the options: {prediction}")
+        if len(prediction.split()) > 10 and not re.search(
+                f"[{letters[0]}-{letters[-1]}]", prediction):
+            raise ValueError(
+                f"Cannot find the answer in the options: {prediction}")
         matches = re.search(rf'[{letters[0]}-{letters[-1]}]', prediction)
         if matches is None:
-            raise ValueError(f"Cannot find the answer in the options: {prediction}")
+            raise ValueError(
+                f"Cannot find the answer in the options: {prediction}")
         prediction = matches[0]
 
         return prediction
 
-    def evaluate(self, results: List[Dict[str, Any]]) -> (Dict[str, Dict[str, float]], Dict[str, List[Dict[str, Any]]]):
+    def evaluate(
+        self, results: List[Dict[str, Any]]
+    ) -> (Dict[str, Dict[str, float]], Dict[str, List[Dict[str, Any]]]):
 
-        l1_results = [x for x in results if self.data_dict[x["data_id"]]["level"] == "L1-Perception"]
-        l2_results = [x for x in results if self.data_dict[x["data_id"]]["level"] == "L2-Relation"]
+        l1_results = [
+            x for x in results
+            if self.data_dict[x["data_id"]]["level"] == "L1-Perception"
+        ]
+        l2_results = [
+            x for x in results
+            if self.data_dict[x["data_id"]]["level"] == "L2-Relation"
+        ]
 
         metrics, infos = {}, {}
         metrics["Overall"], infos["Overall"] = super().evaluate(results)
-        metrics["L1-Perception"], infos["L1-Perception"] = super().evaluate(l1_results)
-        metrics["L2-Relation"], infos["L2-Relation"] = super().evaluate(l2_results)
+        metrics["L1-Perception"], infos["L1-Perception"] = super().evaluate(
+            l1_results)
+        metrics["L2-Relation"], infos["L2-Relation"] = super().evaluate(
+            l2_results)
 
         return metrics, infos

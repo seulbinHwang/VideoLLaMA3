@@ -1,6 +1,7 @@
 from transformers import AutoConfig
 
 import sys
+
 sys.path.append('./')
 
 try:
@@ -20,9 +21,9 @@ def model_init(model_path, max_visual_tokens=None, **kwargs):
         device_map=device_map,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2"
-    )
-    processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        attn_implementation="flash_attention_2")
+    processor = AutoProcessor.from_pretrained(model_path,
+                                              trust_remote_code=True)
     if max_visual_tokens is not None:
         processor.image_processor.max_tokens = max_visual_tokens
     return model, processor
@@ -32,9 +33,13 @@ def mm_infer(data_dict, model, tokenizer, modal='video', **kwargs):
     import torch
     from videollama3.mm_utils import KeywordsStoppingCriteria
     keywords = [tokenizer.eos_token]
-    stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, data_dict["input_ids"])
+    stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer,
+                                                 data_dict["input_ids"])
 
-    data_dict = {k: v.cuda() if isinstance(v, torch.Tensor) else v for k, v in data_dict.items()}
+    data_dict = {
+        k: v.cuda() if isinstance(v, torch.Tensor) else v
+        for k, v in data_dict.items()
+    }
     if "pixel_values" in data_dict:
         data_dict["pixel_values"] = data_dict["pixel_values"].to(torch.bfloat16)
 
@@ -44,7 +49,8 @@ def mm_infer(data_dict, model, tokenizer, modal='video', **kwargs):
     top_k = kwargs.get('top_k', 20 if do_sample else 50)
     max_new_tokens = kwargs.get('max_new_tokens', 2048)
 
-    torch_dtype = model.config.torch_dtype if hasattr(model.config, "torch_dtype") else torch.float16
+    torch_dtype = model.config.torch_dtype if hasattr(
+        model.config, "torch_dtype") else torch.float16
 
     with torch.inference_mode():
         output_ids = model.generate(
@@ -59,7 +65,8 @@ def mm_infer(data_dict, model, tokenizer, modal='video', **kwargs):
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+    outputs = tokenizer.batch_decode(output_ids,
+                                     skip_special_tokens=True)[0].strip()
     return outputs
 
 

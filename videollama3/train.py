@@ -40,9 +40,9 @@ from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
 
 sys.path.append('./')
 
-from videollama3.constants import (IGNORE_INDEX,
-    NUM_FRAMES, DEFAULT_IMAGE_TOKEN, STREAM_MAX_FRAMES,
-    STREAM_START_TOKEN, STREAM_END_TOKEN)
+from videollama3.constants import (IGNORE_INDEX, NUM_FRAMES,
+                                   DEFAULT_IMAGE_TOKEN, STREAM_MAX_FRAMES,
+                                   STREAM_START_TOKEN, STREAM_END_TOKEN)
 from videollama3.mm_utils import (load_images, load_video,
                                   tokenizer_multimodal_token)
 from videollama3.model import *
@@ -84,10 +84,18 @@ def int_with_none(value):
 @dataclass
 class ModelArguments:
     # LLM Arguments
-    model_type: Optional[str] = field(default="videollama3", metadata={"help": "Model type selected in the list: " + ", ".join(VLLMs.keys())})
+    model_type: Optional[str] = field(
+        default="videollama3",
+        metadata={
+            "help":
+                "Model type selected in the list: " + ", ".join(VLLMs.keys())
+        })
     model_path: Optional[str] = field(default="lmsys/vicuna-7b-v1.5")
-    version: Optional[str] = field(default="v1", metadata={"help": "Version of the conversation template."})
-    freeze_backbone: bool = field(default=False, metadata={"help": "Whether to freeze the LLM backbone."})
+    version: Optional[str] = field(
+        default="v1",
+        metadata={"help": "Version of the conversation template."})
+    freeze_backbone: bool = field(
+        default=False, metadata={"help": "Whether to freeze the LLM backbone."})
     # Connector Arguments
     mm_projector_type: Optional[str] = field(default='linear')
     pretrain_mm_projector: Optional[str] = field(default=None)
@@ -103,7 +111,8 @@ class ModelArguments:
 @dataclass
 class DataArguments:
     # Path Arguments
-    data_path: List[str] = field(default=None, metadata={"help": "Path to the training data."})
+    data_path: List[str] = field(
+        default=None, metadata={"help": "Path to the training data."})
     # image_folder: Optional[str] = field(default=None)
     # video_folder: Optional[str] = field(default=None)
     data_folder: Optional[str] = field(default=None)
@@ -116,7 +125,12 @@ class DataArguments:
     video_merge_size: Optional[int] = field(default=1)
     mm_max_length: Optional[int] = field(default=10240)
     image_aspect_ratio: str = 'square'
-    use_batch_flattening: bool = field(default=True, metadata={"help": "Whether to flatten the in-batch sequences of variable lengths."})
+    use_batch_flattening: bool = field(
+        default=True,
+        metadata={
+            "help":
+                "Whether to flatten the in-batch sequences of variable lengths."
+        })
     dataset_cache_dir: Optional[str] = field(default=None)
 
 
@@ -136,22 +150,23 @@ class TrainingArguments(transformers.TrainingArguments):
         default=512,
         metadata={
             "help":
-            "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
+                "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
         },
     )
     # Lora or Quant Arguments
     double_quant: bool = field(
         default=True,
-        metadata={"help": "Compress the quantization statistics through double quantization."}
-    )
+        metadata={
+            "help":
+                "Compress the quantization statistics through double quantization."
+        })
     quant_type: str = field(
         default="nf4",
-        metadata={"help": "Quantization data type to use. Should be one of `fp4` or `nf4`."}
-    )
-    bits: int = field(
-        default=16,
-        metadata={"help": "How many bits to use."}
-    )
+        metadata={
+            "help":
+                "Quantization data type to use. Should be one of `fp4` or `nf4`."
+        })
+    bits: int = field(default=16, metadata={"help": "How many bits to use."})
     lora_enable: bool = False
     lora_r: int = 64
     lora_alpha: int = 16
@@ -170,7 +185,11 @@ class LazySupervisedDataset(Dataset):
             for data in data_path:
                 # NOTE: load_dataset can process both json or jsonl files
                 if data.endswith(".json") or data.endswith(".jsonl"):
-                    data_objs.append(load_dataset("json", data_files=data, cache_dir=data_args.dataset_cache_dir)["train"])
+                    data_objs.append(
+                        load_dataset(
+                            "json",
+                            data_files=data,
+                            cache_dir=data_args.dataset_cache_dir)["train"])
                 else:
                     raise Exception(f"Unsupported file format (<{data}>)!")
             list_data_dict = concatenate_datasets(data_objs)
@@ -207,14 +226,18 @@ class LazySupervisedDataset(Dataset):
         length_list = []
         for sample in self.list_data_dict:
             img_tokens = 576 if 'image' in sample else 0
-            length_list.append(sum(len(conv['value'].split()) for conv in sample['conversations']) + img_tokens)
+            length_list.append(
+                sum(
+                    len(conv['value'].split())
+                    for conv in sample['conversations']) + img_tokens)
         return length_list
 
     @property
     def modality_lengths(self):
         length_list = []
         for sample in self.list_data_dict:
-            cur_len = sum(len(conv['value'].split()) for conv in sample['conversations'])
+            cur_len = sum(
+                len(conv['value'].split()) for conv in sample['conversations'])
             cur_len = cur_len if 'image' in sample else -cur_len
             length_list.append(cur_len)
         return length_list
@@ -230,14 +253,19 @@ class LazySupervisedDataset(Dataset):
                 break
             start_idx += 1
         if start_idx > 0:
-            warnings.warn(f"Find {start_idx} non-user sentences at the beginning of the conversation, remove them automatically!")
+            warnings.warn(
+                f"Find {start_idx} non-user sentences at the beginning of the conversation, remove them automatically!"
+            )
             conversation = conversation[start_idx:]
         assert len(conversation) > 1, f"Invalid conversation"
 
         if 'image' in data_dict and data_dict['image'] is not None:
             modal = 'image'
-            if all(not "<image>" in sentence["value"] for sentence in conversation):
-                warnings.warn(f"Image tag not found in the conversation, add it automatically at the beginning!")
+            if all(not "<image>" in sentence["value"]
+                   for sentence in conversation):
+                warnings.warn(
+                    f"Image tag not found in the conversation, add it automatically at the beginning!"
+                )
                 conversation[0]["value"] = "<image>" + conversation[0]["value"]
             image_file = data_dict['image']
             if isinstance(image_file, list):
@@ -247,13 +275,19 @@ class LazySupervisedDataset(Dataset):
             images = load_images(image_file)
         elif 'video' in data_dict and data_dict['video'] is not None:
             modal = 'video'
-            if all(not "<video>" in sentence["value"] for sentence in conversation):
-                warnings.warn(f"Video tag not found in the conversation, add it automatically at the beginning!")
+            if all(not "<video>" in sentence["value"]
+                   for sentence in conversation):
+                warnings.warn(
+                    f"Video tag not found in the conversation, add it automatically at the beginning!"
+                )
                 conversation[0]["value"] = "<video>" + conversation[0]["value"]
             video_file = data_dict['video']
             if isinstance(video_file, list) and len(video_file) == 1:
                 video_file = os.path.join(data_folder, video_file[0])
-                images, timestamps = load_video(video_file, fps=self.data_args.fps, max_frames=self.data_args.max_frames)
+                images, timestamps = load_video(
+                    video_file,
+                    fps=self.data_args.fps,
+                    max_frames=self.data_args.max_frames)
                 images = [images]
             else:
                 raise ValueError(f"Unsupported video format: {video_file}")
@@ -266,26 +300,28 @@ class LazySupervisedDataset(Dataset):
             if conv["from"] == "human":
                 # replace video tag to image tag for unified processing
                 # conv["value"] = conv["value"].replace("<video>", "<image>" * len(images))
-                chunks = conv["value"].split("<image>" if modal == 'image' else "<video>")
-                messages.append({
-                    "role": "user",
-                    "content": []
-                })
+                chunks = conv["value"].split("<image>" if modal ==
+                                             'image' else "<video>")
+                messages.append({"role": "user", "content": []})
 
                 for chunk_idx in range(1, 2 * len(chunks)):
                     if chunk_idx % 2 == 1:
                         chunk = chunks[chunk_idx // 2].strip()
-                        messages[-1]["content"].append({"type": "text",  "text": chunk}) if chunk else None
+                        messages[-1]["content"].append({
+                            "type": "text",
+                            "text": chunk
+                        }) if chunk else None
                     else:
                         if modal == 'image':
                             messages[-1]["content"].append({"type": "image"})
                         elif modal == 'video':
-                            messages[-1]["content"].append({"type": "video", "num_frames": len(images[0]), "time": timestamps})
+                            messages[-1]["content"].append({
+                                "type": "video",
+                                "num_frames": len(images[0]),
+                                "time": timestamps
+                            })
             else:
-                messages.append({
-                    "role": "assistant",
-                    "content": conv['value']
-                })
+                messages.append({"role": "assistant", "content": conv['value']})
 
         if modal == 'video':
             merge_size = self.data_args.video_merge_size
@@ -296,7 +332,8 @@ class LazySupervisedDataset(Dataset):
         return modal, images, messages, merge_size
 
     def _convert_stream(self, data_dict):
-        video_path = os.path.join(self.data_args.data_folder, data_dict['video'][0])
+        video_path = os.path.join(self.data_args.data_folder,
+                                  data_dict['video'][0])
         frames, timestamps = load_video(
             video_path=video_path,
             start_time=data_dict["start_time"],
@@ -320,10 +357,15 @@ class LazySupervisedDataset(Dataset):
             if message["time"] >= max_time:
                 break
 
-            while frame_idx < len(timestamps) and timestamps[frame_idx] <= message["time"]:
+            while frame_idx < len(
+                    timestamps) and timestamps[frame_idx] <= message["time"]:
                 messages.append({
-                    "role": "stream",
-                    "content": [{"type": "image", "time": timestamps[frame_idx] - data_dict["start_time"]}],
+                    "role":
+                        "stream",
+                    "content": [{
+                        "type": "image",
+                        "time": timestamps[frame_idx] - data_dict["start_time"]
+                    }],
                 })
                 frame_idx += 1
 
@@ -338,9 +380,11 @@ class LazySupervisedDataset(Dataset):
 
         try:
             if "stream" in data_dict and data_dict["stream"]:
-                modal, images, messages, merge_size = self._convert_stream(data_dict)
+                modal, images, messages, merge_size = self._convert_stream(
+                    data_dict)
             else:
-                modal, images, messages, merge_size = self._convert_normal(data_dict)
+                modal, images, messages, merge_size = self._convert_normal(
+                    data_dict)
 
             data_dict = self.vlprocessor(
                 images=images,
@@ -352,18 +396,27 @@ class LazySupervisedDataset(Dataset):
 
             if modal == 'text':
                 unit_size = self.vlprocessor.image_processor.patch_size**2 * 3
-                data_dict['pixel_values'] = torch.zeros(self.data_args.image_merge_size**2, unit_size)
-                data_dict['grid_sizes'] = torch.as_tensor([[1, self.data_args.image_merge_size, self.data_args.image_merge_size]])
-                data_dict['merge_sizes'] = torch.as_tensor([self.data_args.image_merge_size])
+                data_dict['pixel_values'] = torch.zeros(
+                    self.data_args.image_merge_size**2, unit_size)
+                data_dict['grid_sizes'] = torch.as_tensor([[
+                    1, self.data_args.image_merge_size,
+                    self.data_args.image_merge_size
+                ]])
+                data_dict['merge_sizes'] = torch.as_tensor(
+                    [self.data_args.image_merge_size])
             elif modal == 'image' or modal == 'video':
-                assert len(data_dict['pixel_values']) > 0 and len(data_dict['grid_sizes']) > 0, f"Invalid image data: {data_dict['images']}, {data_dict['grid_thws']}"
+                assert len(data_dict['pixel_values']) > 0 and len(
+                    data_dict['grid_sizes']
+                ) > 0, f"Invalid image data: {data_dict['images']}, {data_dict['grid_thws']}"
 
             data_dict['modals'] = [modal]
 
         except Exception as e:
             traceback.print_exc()
             backup_idx = random.randint(0, len(self.list_data_dict) - 1)
-            print(f"Encounted error when process {i}-th example: {data_dict}, use {backup_idx}-th example instead!!!")
+            print(
+                f"Encounted error when process {i}-th example: {data_dict}, use {backup_idx}-th example instead!!!"
+            )
             return self.__getitem__(backup_idx)
 
         return data_dict
@@ -376,7 +429,8 @@ class DataCollatorForSupervisedDataset(object):
     vlprocessor: transformers.ProcessorMixin
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
-        input_ids, labels = tuple([instance[key] for instance in instances]
+        input_ids, labels = tuple([instance[key]
+                                   for instance in instances]
                                   for key in ("input_ids", "labels"))
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids,
@@ -390,11 +444,13 @@ class DataCollatorForSupervisedDataset(object):
         batch = dict(
             input_ids=input_ids,
             labels=labels,
-            attention_mask=input_ids.ne(self.vlprocessor.tokenizer.pad_token_id),
+            attention_mask=input_ids.ne(
+                self.vlprocessor.tokenizer.pad_token_id),
         )
 
         # work for 'images' argument in `prepare_inputs_labels_for_multimodal`
-        batch["pixel_values"] = torch.cat([x["pixel_values"] for x in instances])
+        batch["pixel_values"] = torch.cat(
+            [x["pixel_values"] for x in instances])
         batch["grid_sizes"] = torch.cat([x["grid_sizes"] for x in instances])
         batch["merge_sizes"] = torch.cat([x["merge_sizes"] for x in instances])
         batch["modals"] = sum([x["modals"] for x in instances], [])
@@ -404,11 +460,9 @@ class DataCollatorForSupervisedDataset(object):
 
 def make_supervised_data_module(vlprocessor, data_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
-    train_dataset = LazySupervisedDataset(
-        vlprocessor=vlprocessor,
-        data_path=data_args.data_path,
-        data_args=data_args
-    )
+    train_dataset = LazySupervisedDataset(vlprocessor=vlprocessor,
+                                          data_path=data_args.data_path,
+                                          data_args=data_args)
     data_collator = DataCollatorForSupervisedDataset(vlprocessor=vlprocessor)
     return dict(train_dataset=train_dataset,
                 eval_dataset=None,
@@ -421,19 +475,29 @@ class DataCollatorWithFlatteningForSupervisedDataset(object):
 
     vlprocessor: transformers.ProcessorMixin
 
-    def __call__(self, instances: Sequence[Dict], separator_id=-100) -> Dict[str, torch.Tensor]:
-        input_ids, labels = tuple([instance[key] for instance in instances]
+    def __call__(self,
+                 instances: Sequence[Dict],
+                 separator_id=-100) -> Dict[str, torch.Tensor]:
+        input_ids, labels = tuple([instance[key]
+                                   for instance in instances]
                                   for key in ("input_ids", "labels"))
 
         new_input_ids = []
         new_labels = []
         position_ids = []
         for idx in range(0, len(input_ids)):
-            new_input_ids.append(input_ids[idx][:self.vlprocessor.tokenizer.model_max_length])
-            temp_label = labels[idx][:self.vlprocessor.tokenizer.model_max_length]
+            new_input_ids.append(
+                input_ids[idx][:self.vlprocessor.tokenizer.model_max_length])
+            temp_label = labels[idx][:self.vlprocessor.tokenizer.
+                                     model_max_length]
             temp_label[0] = separator_id
             new_labels.append(temp_label)
-            position_ids.append(torch.tensor(list(range(len(input_ids[idx][:self.vlprocessor.tokenizer.model_max_length])))))
+            position_ids.append(
+                torch.tensor(
+                    list(
+                        range(
+                            len(input_ids[idx][:self.vlprocessor.tokenizer.
+                                               model_max_length])))))
 
         new_input_ids = torch.cat(new_input_ids)
         new_labels = torch.cat(new_labels)
@@ -446,7 +510,8 @@ class DataCollatorWithFlatteningForSupervisedDataset(object):
         )
 
         # work for 'images' argument in `prepare_inputs_labels_for_multimodal`
-        batch["pixel_values"] = torch.cat([x["pixel_values"] for x in instances])
+        batch["pixel_values"] = torch.cat(
+            [x["pixel_values"] for x in instances])
         batch["grid_sizes"] = torch.cat([x["grid_sizes"] for x in instances])
         batch["merge_sizes"] = torch.cat([x["merge_sizes"] for x in instances])
         batch["modals"] = sum([x["modals"] for x in instances], [])
@@ -454,14 +519,14 @@ class DataCollatorWithFlatteningForSupervisedDataset(object):
         return batch
 
 
-def make_flattening_supervised_data_module(vlprocessor: transformers.ProcessorMixin, data_args) -> Dict:
+def make_flattening_supervised_data_module(
+        vlprocessor: transformers.ProcessorMixin, data_args) -> Dict:
     """Make batch flattened dataset and collator for supervised fine-tuning."""
-    train_dataset = LazySupervisedDataset(
-        vlprocessor=vlprocessor,
-        data_path=data_args.data_path,
-        data_args=data_args
-    )
-    data_collator = DataCollatorWithFlatteningForSupervisedDataset(vlprocessor=vlprocessor)
+    train_dataset = LazySupervisedDataset(vlprocessor=vlprocessor,
+                                          data_path=data_args.data_path,
+                                          data_args=data_args)
+    data_collator = DataCollatorWithFlatteningForSupervisedDataset(
+        vlprocessor=vlprocessor)
     return dict(train_dataset=train_dataset,
                 eval_dataset=None,
                 data_collator=data_collator)
@@ -471,7 +536,8 @@ def train(attn_implementation=None):
     global local_rank
     set_seed(42)
 
-    parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
+    parser = transformers.HfArgumentParser(
+        (ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
     local_rank = training_args.local_rank
@@ -484,32 +550,35 @@ def train(attn_implementation=None):
         print('------training args------')
         print(training_args)
 
-    compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
+    compute_dtype = (torch.float16 if training_args.fp16 else
+                     (torch.bfloat16 if training_args.bf16 else torch.float32))
     model_args.torch_dtype = compute_dtype
 
     bnb_model_from_pretrained_args = {}
     if training_args.bits in [4, 8]:
         from transformers import BitsAndBytesConfig
-        bnb_model_from_pretrained_args.update(dict(
-            # device_map={"": training_args.device},
-            # BUG: High version transformers report error:
-            # ValueError: You can't pass `load_in_4bit`or `load_in_8bit` as a kwarg when passing `quantization_config` argument at the same time
-            # load_in_4bit=training_args.bits == 4,
-            # load_in_8bit=training_args.bits == 8,
-            quantization_config=BitsAndBytesConfig(
-                load_in_4bit=training_args.bits == 4,
-                load_in_8bit=training_args.bits == 8,
-                llm_int8_skip_modules=["mm_projector"],
-                llm_int8_threshold=6.0,
-                llm_int8_has_fp16_weight=False,
-                bnb_4bit_compute_dtype=compute_dtype,
-                bnb_4bit_use_double_quant=training_args.double_quant,
-                bnb_4bit_quant_type=training_args.quant_type, # {'fp4', 'nf4'}
-                bnb_4bit_quant_storage=compute_dtype,
-            )
-        ))
+        bnb_model_from_pretrained_args.update(
+            dict(
+                # device_map={"": training_args.device},
+                # BUG: High version transformers report error:
+                # ValueError: You can't pass `load_in_4bit`or `load_in_8bit` as a kwarg when passing `quantization_config` argument at the same time
+                # load_in_4bit=training_args.bits == 4,
+                # load_in_8bit=training_args.bits == 8,
+                quantization_config=BitsAndBytesConfig(
+                    load_in_4bit=training_args.bits == 4,
+                    load_in_8bit=training_args.bits == 8,
+                    llm_int8_skip_modules=["mm_projector"],
+                    llm_int8_threshold=6.0,
+                    llm_int8_has_fp16_weight=False,
+                    bnb_4bit_compute_dtype=compute_dtype,
+                    bnb_4bit_use_double_quant=training_args.double_quant,
+                    bnb_4bit_quant_type=training_args.
+                    quant_type,  # {'fp4', 'nf4'}
+                    bnb_4bit_quant_storage=compute_dtype,
+                )))
 
-    config = VLLMConfigs[model_args.model_type].from_pretrained(model_args.model_path)
+    config = VLLMConfigs[model_args.model_type].from_pretrained(
+        model_args.model_path)
 
     config._attn_implementation = attn_implementation
     config.use_token_compression = model_args.use_token_compression
@@ -521,8 +590,7 @@ def train(attn_implementation=None):
             config=config,
             torch_dtype=compute_dtype,
             do_sample=True,
-            **bnb_model_from_pretrained_args
-        )
+            **bnb_model_from_pretrained_args)
         if 'mixtral' in model_args.model_type:
             import deepspeed
             deepspeed.utils.set_z3_leaf_modules(model, [MixtralSparseMoeBlock])
@@ -532,24 +600,29 @@ def train(attn_implementation=None):
             config=config,
             torch_dtype=compute_dtype,
             do_sample=True,
-            **bnb_model_from_pretrained_args
-        )
+            **bnb_model_from_pretrained_args)
     model.config.use_cache = False
     if model_args.freeze_backbone:
         model.model.requires_grad_(False)
 
     if training_args.bits in [4, 8]:
         from peft import prepare_model_for_kbit_training
-        model.config.torch_dtype=(torch.float32 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
-        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=training_args.gradient_checkpointing)
+        model.config.torch_dtype = (torch.float32 if training_args.fp16 else (
+            torch.bfloat16 if training_args.bf16 else torch.float32))
+        model = prepare_model_for_kbit_training(
+            model,
+            use_gradient_checkpointing=training_args.gradient_checkpointing)
 
     if training_args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
         else:
+
             def make_inputs_require_grad(module, input, output):
                 output.requires_grad_(True)
-            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+            model.get_input_embeddings().register_forward_hook(
+                make_inputs_require_grad)
 
     if training_args.lora_enable:
         from peft import LoraConfig, get_peft_model
@@ -581,7 +654,8 @@ def train(attn_implementation=None):
 
     if model_args.vision_encoder is not None:
         # initialize vision encoder + multi-modal projector
-        model.get_model().initialize_vision_modules(model_args=model_args, fsdp=training_args.fsdp)
+        model.get_model().initialize_vision_modules(model_args=model_args,
+                                                    fsdp=training_args.fsdp)
 
         vision_encoder = model.get_vision_encoder()
         vision_encoder.to(dtype=compute_dtype, device=training_args.device)
@@ -590,7 +664,9 @@ def train(attn_implementation=None):
         vision_encoder.image_processor.max_tokens = mm_max_length
 
         mm_projector = model.get_mm_projector()
-        mm_projector.to(dtype=compute_dtype if training_args.bf16 else torch.float16, device=training_args.device)
+        mm_projector.to(
+            dtype=compute_dtype if training_args.bf16 else torch.float16,
+            device=training_args.device)
 
         data_args.is_multimodal = True
 
@@ -598,7 +674,8 @@ def train(attn_implementation=None):
         model.config.tokenizer_model_max_length = tokenizer.model_max_length
 
         if training_args.bits in [4, 8]:
-            model.get_model().mm_projector.to(dtype=compute_dtype, device=training_args.device)
+            model.get_model().mm_projector.to(dtype=compute_dtype,
+                                              device=training_args.device)
 
         # decoupled learning rate
         model.config.llm_lr = training_args.llm_lr
@@ -628,18 +705,22 @@ def train(attn_implementation=None):
         # 1. acquire image size
         model.config.image_size = data_args.image_size = vision_encoder.image_size
         # 2. calculate the number of tokens in the image
-        model.config.image_token_length = data_args.image_token_length = mm_projector.cal_proj_size(vision_encoder.num_patches_per_side)
+        model.config.image_token_length = data_args.image_token_length = mm_projector.cal_proj_size(
+            vision_encoder.num_patches_per_side)
         # 3. check if alignment
         model.config.is_alignment = training_args.is_alignment = data_args.is_alignment = (
             model.config.mm_projector_lr is not None and
             model.config.llm_lr is None and
-            model.config.vision_encoder_lr is None
-        )
+            model.config.vision_encoder_lr is None)
         # 4. set spatial merge size as default
-        tokenizer.add_tokens([DEFAULT_IMAGE_TOKEN, STREAM_START_TOKEN, STREAM_END_TOKEN], special_tokens=True)
-        model.config.image_token_index = tokenizer.convert_tokens_to_ids(DEFAULT_IMAGE_TOKEN)
+        tokenizer.add_tokens(
+            [DEFAULT_IMAGE_TOKEN, STREAM_START_TOKEN, STREAM_END_TOKEN],
+            special_tokens=True)
+        model.config.image_token_index = tokenizer.convert_tokens_to_ids(
+            DEFAULT_IMAGE_TOKEN)
 
-        vlprocessor = Videollama3Processor(vision_encoder.image_processor, tokenizer)
+        vlprocessor = Videollama3Processor(vision_encoder.image_processor,
+                                           tokenizer)
 
     if training_args.bits in [4, 8]:
         from peft.tuners.lora import LoraLayer
@@ -659,15 +740,23 @@ def train(attn_implementation=None):
         print("Model config:", model.config)
 
     if data_args.use_batch_flattening:
-        rank0_print('You are using flattening operation to flatten the entire mini batch into a single sequence')
+        rank0_print(
+            'You are using flattening operation to flatten the entire mini batch into a single sequence'
+        )
         assert model.config._attn_implementation == 'flash_attention_2'
-        assert version.parse(transformers.__version__) >= version.parse("4.44.0")
-        data_module = make_flattening_supervised_data_module(vlprocessor=vlprocessor, data_args=data_args)
+        assert version.parse(
+            transformers.__version__) >= version.parse("4.44.0")
+        data_module = make_flattening_supervised_data_module(
+            vlprocessor=vlprocessor, data_args=data_args)
     else:
-        data_module = make_supervised_data_module(vlprocessor=vlprocessor, data_args=data_args)
+        data_module = make_supervised_data_module(vlprocessor=vlprocessor,
+                                                  data_args=data_args)
 
     # select a Trainer
-    trainer = VideoLLaMA3Trainer(model=model, tokenizer=tokenizer, args=training_args, **data_module)
+    trainer = VideoLLaMA3Trainer(model=model,
+                                 tokenizer=tokenizer,
+                                 args=training_args,
+                                 **data_module)
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
@@ -678,14 +767,21 @@ def train(attn_implementation=None):
     model.config.use_cache = True
 
     if training_args.lora_enable:
-        state_dict = get_peft_state_maybe_zero_3(model.named_parameters(), training_args.lora_bias)
-        non_lora_state_dict = get_peft_state_non_lora_maybe_zero_3(model.named_parameters())
+        state_dict = get_peft_state_maybe_zero_3(model.named_parameters(),
+                                                 training_args.lora_bias)
+        non_lora_state_dict = get_peft_state_non_lora_maybe_zero_3(
+            model.named_parameters())
         if training_args.local_rank == 0 or training_args.local_rank == -1:
             model.config.save_pretrained(training_args.output_dir)
-            model.save_pretrained(training_args.output_dir, state_dict=state_dict)
-            torch.save(non_lora_state_dict, os.path.join(training_args.output_dir, 'non_lora_trainables.bin'))
+            model.save_pretrained(training_args.output_dir,
+                                  state_dict=state_dict)
+            torch.save(
+                non_lora_state_dict,
+                os.path.join(training_args.output_dir,
+                             'non_lora_trainables.bin'))
     else:
-        safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
+        safe_save_model_for_hf_trainer(trainer=trainer,
+                                       output_dir=training_args.output_dir)
 
 
 if __name__ == "__main__":

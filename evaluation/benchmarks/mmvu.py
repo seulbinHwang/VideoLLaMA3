@@ -58,6 +58,7 @@ Output your response in the following structured format:
 }
 """
 
+
 class EvaluationOutput(BaseModel):
     extracted_answer: str
     correct: bool
@@ -70,7 +71,7 @@ class MMVUDataset(BaseEvalDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize Azure OpenAI client with key-based authentication
-        self.client = AzureOpenAI(  
+        self.client = AzureOpenAI(
             azure_endpoint=os.getenv("ENDPOINT_URL"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             api_version="2024-08-01-preview",
@@ -86,11 +87,9 @@ class MMVUDataset(BaseEvalDataset):
 
         idx = 0
         for data in data_list:
-            video_path = os.path.join(
-                video_folder,
-                osp.basename(osp.dirname(data["video"])),
-                osp.basename(data["video"])
-            )
+            video_path = os.path.join(video_folder,
+                                      osp.basename(osp.dirname(data["video"])),
+                                      osp.basename(data["video"]))
 
             data = {
                 # required fields for data loading
@@ -117,15 +116,22 @@ class MMVUDataset(BaseEvalDataset):
         meta_data = self.data_dict[data_id]
 
         if meta_data["question_type"] == "multiple-choice":
-            options = [f"{key}: {value}" for key, value in meta_data["options"].items()]
+            options = [
+                f"{key}: {value}"
+                for key, value in meta_data["options"].items()
+            ]
             option_string = "\n".join(options)
-            template = MULTI_CHOICE_COT_PROMPT if meta_data["use_cot"] else MULTI_CHOICE_DO_PROMPT
-            instruction = template.format(question=meta_data["question"], option_string=option_string)
+            template = MULTI_CHOICE_COT_PROMPT if meta_data[
+                "use_cot"] else MULTI_CHOICE_DO_PROMPT
+            instruction = template.format(question=meta_data["question"],
+                                          option_string=option_string)
         elif meta_data["question_type"] == "open-ended":
-            template = OPEN_ENDED_COT_PROMPT if meta_data["use_cot"] else OPEN_ENDED_DO_PROMPT
+            template = OPEN_ENDED_COT_PROMPT if meta_data[
+                "use_cot"] else OPEN_ENDED_DO_PROMPT
             instruction = template.format(question=meta_data["question"])
         else:
-            raise ValueError(f"Unknown question type: {meta_data['question_type']}")
+            raise ValueError(
+                f"Unknown question type: {meta_data['question_type']}")
 
         return instruction
 
@@ -135,7 +141,10 @@ class MMVUDataset(BaseEvalDataset):
         question_type = meta_data["question_type"]
 
         if question_type == "multiple-choice":
-            options = [f"{key}: {value}" for key, value in meta_data["options"].items()]
+            options = [
+                f"{key}: {value}"
+                for key, value in meta_data["options"].items()
+            ]
             option_string = "\n".join(options)
             question_context = f"Question: {meta_data['question']}\n\nOptions:\n{option_string}"
 
@@ -158,22 +167,34 @@ class MMVUDataset(BaseEvalDataset):
 
         if question_type == "multiple-choice":
             messages = [
-                {"role": "system", "content": MULTI_CHOICE_INSTRUCTION},
-                {"role": "user", "content": user_prompt},
+                {
+                    "role": "system",
+                    "content": MULTI_CHOICE_INSTRUCTION
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                },
             ]
         else:
             messages = [
-                {"role": "system", "content": OPEN_ENDED_INSTRUCTION},
-                {"role": "user", "content": user_prompt},
+                {
+                    "role": "system",
+                    "content": OPEN_ENDED_INSTRUCTION
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                },
             ]
 
         while True:
             try:
-                completion = self.client.beta.chat.completions.parse(  
-                    model=os.getenv("DEPLOYMENT_NAME", "gpt-4o-0806") ,
+                completion = self.client.beta.chat.completions.parse(
+                    model=os.getenv("DEPLOYMENT_NAME", "gpt-4o-0806"),
                     messages=messages,
                     temperature=1.0,
-                    max_tokens=128,  
+                    max_tokens=128,
                     top_p=1.0,
                     response_format=EvaluationOutput,
                 )
@@ -199,6 +220,7 @@ class MMVUDataset(BaseEvalDataset):
                 results_wo_cot.append(data)
 
         metrics, infos = {}, {}
-        metrics["without_cot"], infos["without_cot"] = super().evaluate(results_wo_cot)
+        metrics["without_cot"], infos["without_cot"] = super().evaluate(
+            results_wo_cot)
         metrics["with_cot"], infos["with_cot"] = super().evaluate(results_w_cot)
         return metrics, infos

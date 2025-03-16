@@ -34,7 +34,6 @@ from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 from videollama3.constants import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX
 from videollama3.mm_utils import load_video, load_images
 
-
 DEFAULT_CHAT_TEMPLATE = """
 {%- set identifier = 'im' %}
 {% for message in messages %}
@@ -114,7 +113,11 @@ class Videollama3Processor(ProcessorMixin):
     image_processor_class = "Qwen2VLImageProcessor"
     tokenizer_class = ("Qwen2Tokenizer", "Qwen2TokenizerFast")
 
-    def __init__(self, image_processor=None, tokenizer=None, chat_template=None, **kwargs):
+    def __init__(self,
+                 image_processor=None,
+                 tokenizer=None,
+                 chat_template=None,
+                 **kwargs):
         if chat_template is None:
             chat_template = DEFAULT_CHAT_TEMPLATE
         # super().__init__(image_processor, tokenizer, chat_template=chat_template)
@@ -123,9 +126,11 @@ class Videollama3Processor(ProcessorMixin):
         self.image_processor = image_processor
         self.tokenizer = tokenizer
         self.generation_prompt = self._infer_generation_prompt()
-        self.generation_prompt_ids = self.tokenizer.encode(self.generation_prompt, return_tensors="pt")
+        self.generation_prompt_ids = self.tokenizer.encode(
+            self.generation_prompt, return_tensors="pt")
         self.generation_prompt_length = len(self.generation_prompt_ids[0])
-        self.image_token_id = self.tokenizer.convert_tokens_to_ids(DEFAULT_IMAGE_TOKEN)
+        self.image_token_id = self.tokenizer.convert_tokens_to_ids(
+            DEFAULT_IMAGE_TOKEN)
         self.eos_token_id = self.tokenizer.eos_token_id
 
     def get_generation_prompt(self):
@@ -142,8 +147,10 @@ class Videollama3Processor(ProcessorMixin):
 
     def _infer_generation_prompt(self):
         pseudo_message = [{"role": "user", "content": ""}]
-        instruction = self.tokenizer.apply_chat_template(pseudo_message, tokenize=False, add_generation_prompt=True)
-        conversation = self.tokenizer.apply_chat_template(pseudo_message, tokenize=False, add_generation_prompt=False)
+        instruction = self.tokenizer.apply_chat_template(
+            pseudo_message, tokenize=False, add_generation_prompt=True)
+        conversation = self.tokenizer.apply_chat_template(
+            pseudo_message, tokenize=False, add_generation_prompt=False)
         return instruction.replace(conversation, "")
 
     def _process_text_with_label(
@@ -152,8 +159,12 @@ class Videollama3Processor(ProcessorMixin):
         grid_sizes: torch.Tensor = None,
         **kwargs,
     ):
-        assert kwargs.pop("return_tensors", "pt") == "pt", "Only PyTorch tensors are supported when return_labels=True."
-        assert isinstance(text[0], dict), "When return_labels=True, text must be a list of messages."
+        assert kwargs.pop(
+            "return_tensors", "pt"
+        ) == "pt", "Only PyTorch tensors are supported when return_labels=True."
+        assert isinstance(
+            text[0],
+            dict), "When return_labels=True, text must be a list of messages."
 
         input_ids_list = []
         targets_list = []
@@ -162,7 +173,8 @@ class Videollama3Processor(ProcessorMixin):
 
         for message_idx, message in enumerate(text):
             # 1. set chat template and append image tokens
-            prompt = self.tokenizer.apply_chat_template([message], tokenize=False, add_generation_prompt=False)
+            prompt = self.tokenizer.apply_chat_template(
+                [message], tokenize=False, add_generation_prompt=False)
             prompt_chunks = prompt.split(DEFAULT_IMAGE_TOKEN)
             prompt = []
             for chunk_idx in range(len(prompt_chunks) - 1):
@@ -179,14 +191,17 @@ class Videollama3Processor(ProcessorMixin):
             targets = torch.full_like(input_ids, IGNORE_INDEX)
             sample_types = torch.full_like(input_ids, IGNORE_INDEX)
             if message["role"] == "assistant":
-                targets[self.generation_prompt_length:-1] = input_ids[self.generation_prompt_length:-1].clone()
+                targets[self.generation_prompt_length:-1] = input_ids[
+                    self.generation_prompt_length:-1].clone()
             elif message["role"] == "stream":
                 diff = torch.diff((input_ids == self.image_token_id).float())
                 image_end_indices = torch.nonzero(diff < 0)[:, 0]
-                targets[image_end_indices + 1] = input_ids[image_end_indices + 1]
+                targets[image_end_indices + 1] = input_ids[image_end_indices +
+                                                           1]
                 sample_types = targets.clone()
-                sample_types[torch.logical_and(sample_types > 0, sample_types != self.eos_token_id)] = 0
-                targets[-2] = input_ids[-2]    # <|im_end|>
+                sample_types[torch.logical_and(
+                    sample_types > 0, sample_types != self.eos_token_id)] = 0
+                targets[-2] = input_ids[-2]  # <|im_end|>
 
             # if message_idx > 0 and text[message_idx - 1]["role"] == "stream":
             #     targets[0] = input_ids[0]
@@ -196,11 +211,14 @@ class Videollama3Processor(ProcessorMixin):
             targets_list.append(targets)
             sample_types_list.append(sample_types)
 
-        assert len(grid_sizes) == image_idx, "Number of images does not match the number of image tokens in the text."
+        assert len(
+            grid_sizes
+        ) == image_idx, "Number of images does not match the number of image tokens in the text."
 
         targets = torch.cat(targets_list)
         sample_types = torch.cat(sample_types_list)
-        types, counts = torch.unique(sample_types[sample_types > -1], return_counts=True)
+        types, counts = torch.unique(sample_types[sample_types > -1],
+                                     return_counts=True)
 
         if len(types) > 0:
             target_num_samples = counts.amin()
@@ -208,7 +226,8 @@ class Videollama3Processor(ProcessorMixin):
             for type_id, type_count in zip(types, counts):
                 if type_count > target_num_samples:
                     indices = torch.nonzero(sample_types == type_id)[:, 0]
-                    random_selector = torch.randperm(indices.size(0))[:-target_num_samples]
+                    random_selector = torch.randperm(
+                        indices.size(0))[:-target_num_samples]
                     targets[indices[random_selector]] = IGNORE_INDEX
                     sample_types[indices[random_selector]] = -1
 
@@ -226,24 +245,35 @@ class Videollama3Processor(ProcessorMixin):
         **kwargs,
     ):
         if isinstance(text[0], dict):
-            warnings.warn("Input text is a list of messages. Automatically convert it to a string with 'apply_chat_template' with generation prompt.")
-            text = [self.tokenizer.apply_chat_template(text, tokenize=False, add_generation_prompt=True)]
+            warnings.warn(
+                "Input text is a list of messages. Automatically convert it to a string with 'apply_chat_template' with generation prompt."
+            )
+            text = [
+                self.tokenizer.apply_chat_template(text,
+                                                   tokenize=False,
+                                                   add_generation_prompt=True)
+            ]
 
         image_idx = 0
         for i in range(len(text)):
             while DEFAULT_IMAGE_TOKEN in text[i]:
                 thw = grid_sizes[image_idx]
-                text[i] = text[i].replace(DEFAULT_IMAGE_TOKEN, "<placeholder>" * thw.prod().long(), 1)
+                text[i] = text[i].replace(DEFAULT_IMAGE_TOKEN,
+                                          "<placeholder>" * thw.prod().long(),
+                                          1)
                 image_idx += 1
             text[i] = text[i].replace("<placeholder>", DEFAULT_IMAGE_TOKEN)
-        assert len(grid_sizes) == image_idx, "Number of images does not match the number of image tokens in the text."
+        assert len(
+            grid_sizes
+        ) == image_idx, "Number of images does not match the number of image tokens in the text."
 
         text_inputs = self.tokenizer(text, **kwargs)
         return text_inputs
 
     def process_text(
         self,
-        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput], List[Dict]],
+        text: Union[TextInput, PreTokenizedInput, List[TextInput],
+                    List[PreTokenizedInput], List[Dict]],
         image_inputs: Dict[str, torch.Tensor] = {},
         return_labels: bool = False,
         **kwargs,
@@ -256,9 +286,12 @@ class Videollama3Processor(ProcessorMixin):
         assert len(text), "At least one text must be provided."
 
         grid_sizes = []
-        for grid_size, merge_size in zip(image_inputs.get("grid_sizes", []), image_inputs.get("merge_sizes", [])):
+        for grid_size, merge_size in zip(image_inputs.get("grid_sizes", []),
+                                         image_inputs.get("merge_sizes", [])):
             if not torch.all(grid_size[1:] % merge_size == 0):
-                warnings.warn(f"Grid size {grid_size} is not divisible by merge size. Some undesired errors may occur.")
+                warnings.warn(
+                    f"Grid size {grid_size} is not divisible by merge size. Some undesired errors may occur."
+                )
             if grid_size[0] == 1:
                 grid_sizes.append(grid_size[1:] / merge_size)
             elif grid_size[0] > 1:
@@ -276,12 +309,15 @@ class Videollama3Processor(ProcessorMixin):
     ):
         if images is None:
             return {}
-        image_inputs = self.image_processor(images=images, merge_size=merge_size, **kwargs)
+        image_inputs = self.image_processor(images=images,
+                                            merge_size=merge_size,
+                                            **kwargs)
         return image_inputs
 
     def __call__(
         self,
-        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput], List[Dict]] = None,
+        text: Union[TextInput, PreTokenizedInput, List[TextInput],
+                    List[PreTokenizedInput], List[Dict]] = None,
         images: ImageInput = None,
         merge_size: Optional[int] = 1,
         return_labels: bool = False,
@@ -326,8 +362,10 @@ class Videollama3Processor(ProcessorMixin):
         output_kwargs["text_kwargs"].pop("padding")
         output_kwargs["text_kwargs"].pop("padding_side")
 
-        image_inputs = self.process_images(images, merge_size, **output_kwargs["images_kwargs"])
-        text_inputs = self.process_text(text, image_inputs, return_labels, **output_kwargs["text_kwargs"])
+        image_inputs = self.process_images(images, merge_size,
+                                           **output_kwargs["images_kwargs"])
+        text_inputs = self.process_text(text, image_inputs, return_labels,
+                                        **output_kwargs["text_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})
 
@@ -349,4 +387,5 @@ class Videollama3Processor(ProcessorMixin):
     def model_input_names(self):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
-        return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+        return list(
+            dict.fromkeys(tokenizer_input_names + image_processor_input_names))

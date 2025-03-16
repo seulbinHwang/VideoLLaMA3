@@ -13,11 +13,11 @@ model = AutoModel.from_pretrained(
     torch_dtype=torch.bfloat16,
     attn_implementation="flash_attention_2",
 )
-processor = AutoImageProcessor.from_pretrained(model_name, trust_remote_code=True)
+processor = AutoImageProcessor.from_pretrained(model_name,
+                                               trust_remote_code=True)
 
 inputs = processor(images=images, merge_size=1)
 inputs = {k: torch.tensor(v).cuda() for k, v in inputs.items()}
 if "pixel_values" in inputs:
     inputs["pixel_values"] = inputs["pixel_values"].to(torch.bfloat16)
 image_features = model(**inputs)
-

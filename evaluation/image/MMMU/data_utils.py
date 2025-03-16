@@ -1,4 +1,3 @@
-
 CAT_SHORT2LONG = {
     'acc': 'Accounting',
     'agri': 'Agriculture',
@@ -33,11 +32,24 @@ CAT_SHORT2LONG = {
 }
 
 DOMAIN_CAT2SUB_CAT = {
-  'Art and Design': ['Art', 'Art_Theory', 'Design', 'Music'],
-  'Business': ['Accounting', 'Economics', 'Finance', 'Manage','Marketing'],
-  'Science': ['Biology', 'Chemistry', 'Geography', 'Math', 'Physics',],
-  'Health and Medicine': ['Basic_Medical_Science', 'Clinical_Medicine', 'Diagnostics_and_Laboratory_Medicine', 'Pharmacy', 'Public_Health'],
-  'Humanities and Social Science': ['History', 'Literature', 'Sociology', 'Psychology'],
-  'Tech and Engineering': ['Agriculture', 'Architecture_and_Engineering', 'Computer_Science', 'Electronics', 'Energy_and_Power', 'Materials', 'Mechanical_Engineering'],
+    'Art and Design': ['Art', 'Art_Theory', 'Design', 'Music'],
+    'Business': ['Accounting', 'Economics', 'Finance', 'Manage', 'Marketing'],
+    'Science': [
+        'Biology',
+        'Chemistry',
+        'Geography',
+        'Math',
+        'Physics',
+    ],
+    'Health and Medicine': [
+        'Basic_Medical_Science', 'Clinical_Medicine',
+        'Diagnostics_and_Laboratory_Medicine', 'Pharmacy', 'Public_Health'
+    ],
+    'Humanities and Social Science': [
+        'History', 'Literature', 'Sociology', 'Psychology'
+    ],
+    'Tech and Engineering': [
+        'Agriculture', 'Architecture_and_Engineering', 'Computer_Science',
+        'Electronics', 'Energy_and_Power', 'Materials', 'Mechanical_Engineering'
+    ],
 }
-

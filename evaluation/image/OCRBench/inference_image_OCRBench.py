@@ -22,9 +22,11 @@ def set_random_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
 def read_json(path):
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
+
 
 def save_json(data, path):
     with open(path, 'w') as f:
@@ -34,7 +36,7 @@ def save_json(data, path):
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
@@ -43,6 +45,7 @@ def get_chunk(lst, n, k):
 
 
 class OCRBenchDataset(Dataset):
+
     def __init__(self, data_path, input_file, processor, num_chunks, chunk_idx):
         data = read_json(f'{data_path}/{input_file}')
 
@@ -65,11 +68,16 @@ class OCRBenchDataset(Dataset):
         image_tensor = self.processor(image_path)
 
         return {
-            'pid':          self.data[idx]['id'],
-            'problem':      f'{question}\nAnswer the question with a single word or phrase.',
-            'image':        image_tensor,
-            'ori_data':     self.data[idx]
+            'pid':
+                self.data[idx]['id'],
+            'problem':
+                f'{question}\nAnswer the question with a single word or phrase.',
+            'image':
+                image_tensor,
+            'ori_data':
+                self.data[idx]
         }
+
 
 def collate_fn(batch):
     pid = [x['pid'] for x in batch]
@@ -89,11 +97,18 @@ def run_inference(args):
 
     assert args.batch_size == 1, "Batch size must be 1 for inference"
 
-    dataset = OCRBenchDataset(args.data_path, args.input_file, processor['image'], args.num_chunks, args.chunk_idx)
-    dataloader = DataLoader(dataset, shuffle=False, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_fn)
+    dataset = OCRBenchDataset(args.data_path, args.input_file,
+                              processor['image'], args.num_chunks,
+                              args.chunk_idx)
+    dataloader = DataLoader(dataset,
+                            shuffle=False,
+                            batch_size=args.batch_size,
+                            num_workers=args.num_workers,
+                            collate_fn=collate_fn)
 
     if args.num_chunks > 1:
-        output_file = args.output_file.replace('.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
+        output_file = args.output_file.replace(
+            '.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
     else:
         output_file = args.output_file
 
@@ -101,7 +116,8 @@ def run_inference(args):
 
     for idx, (pid, problem, image, ori_data) in enumerate(tqdm(dataloader)):
         pid = pid[0]
-        problem = problem[0] if args.instructions_message == '' else f'{problem[0]} {args.instructions_message}'
+        problem = problem[
+            0] if args.instructions_message == '' else f'{problem[0]} {args.instructions_message}'
         image_tensor = image[0]
         ori_data = ori_data[0]
 
@@ -121,13 +137,16 @@ def run_inference(args):
 
     save_json(results, output_file)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model-path', help='', required=True)
     parser.add_argument('--data-path', help='', required=True)
     parser.add_argument('--input-file', type=str, default='OCRBench.json')
-    parser.add_argument('--output-file', help='Directory to save the model results JSON.', required=True)
+    parser.add_argument('--output-file',
+                        help='Directory to save the model results JSON.',
+                        required=True)
     parser.add_argument("--batch-size", type=int, required=False, default=1)
     parser.add_argument("--num-workers", type=int, required=False, default=8)
     parser.add_argument("--num-chunks", type=int, default=1)

@@ -22,7 +22,10 @@ from .constants import NUM_FRAMES, MAX_FRAMES, NUM_FRAMES_PER_SECOND, MODAL_INDE
 
 
 def chunk_list(input_list, chunk_size):
-    return [input_list[i:i + chunk_size] for i in range(0, len(input_list), chunk_size)]
+    return [
+        input_list[i:i + chunk_size]
+        for i in range(0, len(input_list), chunk_size)
+    ]
 
 
 def load_image_from_base64(image):
@@ -72,11 +75,15 @@ def load_images(image_path):
         images = [Image.open(image_path).convert('RGB')]
     elif isinstance(image_path, str) and os.path.isdir(image_path):
         # images = [cv2.cvtColor(cv2.imread(os.path.join(image_path, f)), cv2.COLOR_BGR2RGB) for f in sorted(os.listdir(image_path))]
-        images = [Image.open(os.path.join(image_path, f)).convert('RGB') for f in sorted(os.listdir(image_path))]
+        images = [
+            Image.open(os.path.join(image_path, f)).convert('RGB')
+            for f in sorted(os.listdir(image_path))
+        ]
     elif isinstance(image_path, list) and isinstance(image_path[0], str):
         # images = [cv2.cvtColor(cv2.imread(f), cv2.COLOR_BGR2RGB) for f in image_path]
         images = [Image.open(f).convert('RGB') for f in image_path]
-    elif isinstance(image_path, list) and isinstance(image_path[0], Image.Image):
+    elif isinstance(image_path, list) and isinstance(image_path[0],
+                                                     Image.Image):
         images = image_path
     elif isinstance(image_path, Image.Image):
         images = [image_path]
@@ -123,12 +130,16 @@ def process_dynamic_image(image, image_size=384, use_thumbnail=True):
     # calculate the existing image aspect ratio
     tgt_ratios = []
     for n in range(min_num, max_num + 1):
-        tgt_ratios.extend([(i, j) for i in range(1, n + 1) for j in range(1, n + 1) if i * j <= max_num and i * j >= min_num])
+        tgt_ratios.extend([(i, j)
+                           for i in range(1, n + 1)
+                           for j in range(1, n + 1)
+                           if i * j <= max_num and i * j >= min_num])
     tgt_ratios = set(tgt_ratios)
     tgt_ratios = sorted(tgt_ratios, key=lambda x: x[0] * x[1])
 
     # find the closest aspect ratio to the target
-    tgt_ratio = find_closest_aspect_ratio(aspect_ratio, tgt_ratios, ori_size, image_size)
+    tgt_ratio = find_closest_aspect_ratio(aspect_ratio, tgt_ratios, ori_size,
+                                          image_size)
 
     # resize the image to the target size
     tgt_width = image_size[0] * tgt_ratio[0]
@@ -176,7 +187,10 @@ def process_dynamic_image(image, image_size=384, use_thumbnail=True):
     return image_grid
 
 
-def process_highres_image(image_path, image_size=384, use_thumbnail=True, padding_value=(0, 0, 0)):
+def process_highres_image(image_path,
+                          image_size=384,
+                          use_thumbnail=True,
+                          padding_value=(0, 0, 0)):
     # Grid Params:
     grid_width = [1, 2, 3]
     grid_width_real = [x * image_size for x in grid_width]
@@ -217,11 +231,15 @@ def select_best_resolution(original_size, possible_resolutions):
 
     for width, height in possible_resolutions:
         scale = min(width / original_width, height / original_height)
-        downscaled_width, downscaled_height = int(original_width * scale), int(original_height * scale)
-        effective_resolution = min(downscaled_width * downscaled_height, original_width * original_height)
+        downscaled_width, downscaled_height = int(original_width * scale), int(
+            original_height * scale)
+        effective_resolution = min(downscaled_width * downscaled_height,
+                                   original_width * original_height)
         wasted_resolution = (width * height) - effective_resolution
 
-        if effective_resolution > max_effective_resolution or (effective_resolution == max_effective_resolution and wasted_resolution < min_wasted_resolution):
+        if effective_resolution > max_effective_resolution or (
+                effective_resolution == max_effective_resolution and
+                wasted_resolution < min_wasted_resolution):
             max_effective_resolution = effective_resolution
             min_wasted_resolution = wasted_resolution
             best_fit = (width, height)
@@ -229,7 +247,10 @@ def select_best_resolution(original_size, possible_resolutions):
     return best_fit
 
 
-def process_anyres_image(image, image_size=384, use_thumbnail=True, padding_value=(0, 0, 0)):
+def process_anyres_image(image,
+                         image_size=384,
+                         use_thumbnail=True,
+                         padding_value=(0, 0, 0)):
     """
     Process an image with variable resolutions.
 
@@ -242,7 +263,9 @@ def process_anyres_image(image, image_size=384, use_thumbnail=True, padding_valu
     """
     # Grid Params:
     possible_grids = [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3)]
-    possible_resolutions = [(x * image_size, y * image_size) for x, y in possible_grids]
+    possible_resolutions = [
+        (x * image_size, y * image_size) for x, y in possible_grids
+    ]
 
     best_resolution = select_best_resolution(image.size, possible_resolutions)
 
@@ -254,7 +277,8 @@ def process_anyres_image(image, image_size=384, use_thumbnail=True, padding_valu
     new_size = (int(ow * scale_factor), int(oh * scale_factor))
 
     image_padded = Image.new("RGB", (nw, nh), padding_value)
-    image_padded.paste(image.resize(new_size), ((nw - new_size[0]) // 2, (nh - new_size[1]) // 2))
+    image_padded.paste(image.resize(new_size),
+                       ((nw - new_size[0]) // 2, (nh - new_size[1]) // 2))
 
     image_grid = grid_divide(image_padded, image_size)
 
@@ -279,9 +303,14 @@ def process_adares_image(image_path, image_size=384, use_thumbnail=True):
     # calculate the existing image aspect ratio
     tgt_ratios = []
     for n in range(min_num, max_num + 1):
-        tgt_ratios.extend([(i, j) for i in range(1, n + 1) for j in range(1, n + 1) if i * j <= max_num and i * j >= min_num])
+        tgt_ratios.extend([(i, j)
+                           for i in range(1, n + 1)
+                           for j in range(1, n + 1)
+                           if i * j <= max_num and i * j >= min_num])
     tgt_ratios = set(tgt_ratios)
-    possible_resolutions = [(x * image_size[0], y * image_size[1]) for x, y in tgt_ratios]
+    possible_resolutions = [
+        (x * image_size[0], y * image_size[1]) for x, y in tgt_ratios
+    ]
 
     # find the most possible resolution
     best_resolution = select_best_resolution(ori_size, possible_resolutions)
@@ -298,33 +327,56 @@ def process_adares_image(image_path, image_size=384, use_thumbnail=True):
     return image_grid
 
 
-def process_images(image_path, processor, aspect_ratio='pad', image_size=384, use_thumbnail=True):
+def process_images(image_path,
+                   processor,
+                   aspect_ratio='pad',
+                   image_size=384,
+                   use_thumbnail=True):
     images = load_images(image_path)
 
-    padding_value = tuple(int(x*255) for x in processor.image_mean)
+    padding_value = tuple(int(x * 255) for x in processor.image_mean)
 
     image_grids = []
     for image in images:
         if aspect_ratio == 'pad':
             image_grid = process_pad_image(image, padding_value=padding_value)
         elif aspect_ratio == 'dynamic':
-            image_grid = process_dynamic_image(image, image_size=image_size, use_thumbnail=use_thumbnail)
+            image_grid = process_dynamic_image(image,
+                                               image_size=image_size,
+                                               use_thumbnail=use_thumbnail)
         elif aspect_ratio == 'highres':
-            image_grid = process_highres_image(image, image_size=image_size, use_thumbnail=use_thumbnail, padding_value=padding_value)
+            image_grid = process_highres_image(image,
+                                               image_size=image_size,
+                                               use_thumbnail=use_thumbnail,
+                                               padding_value=padding_value)
         elif aspect_ratio == 'anyres':
-            image_grid = process_anyres_image(image, image_size=image_size, use_thumbnail=use_thumbnail, padding_value=padding_value)
+            image_grid = process_anyres_image(image,
+                                              image_size=image_size,
+                                              use_thumbnail=use_thumbnail,
+                                              padding_value=padding_value)
         elif aspect_ratio == 'adares':
-            image_grid = process_adares_image(image, image_size=image_size, use_thumbnail=use_thumbnail)
+            image_grid = process_adares_image(image,
+                                              image_size=image_size,
+                                              use_thumbnail=use_thumbnail)
         else:
             image_grid = [image]
 
-        image_grid = [processor.preprocess(image_row, return_tensors='pt', num_images=len(images)) for image_row in image_grid]
+        image_grid = [
+            processor.preprocess(image_row,
+                                 return_tensors='pt',
+                                 num_images=len(images))
+            for image_row in image_grid
+        ]
         image_grids.append(image_grid)
 
     return image_grids
 
 
-def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=None):
+def frame_sample(duration,
+                 mode='uniform',
+                 num_frames=None,
+                 vid_fps=None,
+                 fps=None):
     if mode == 'uniform':
         assert num_frames is not None, "Number of frames must be provided for uniform sampling."
         if duration <= num_frames:
@@ -345,7 +397,7 @@ def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=No
 
         # return np.round(np.array(frame_ids) + 1e-6).astype(int)
         # NOTE: v0 version
-        return np.linspace(0, duration-1, num_frames, dtype=int)
+        return np.linspace(0, duration - 1, num_frames, dtype=int)
     elif mode == 'fps':
         assert vid_fps is not None, "FPS must be provided for FPS sampling."
         fps = fps if fps is not None else NUM_FRAMES_PER_SECOND
@@ -355,7 +407,12 @@ def frame_sample(duration, mode='uniform', num_frames=None, vid_fps=None, fps=No
         raise ImportError(f'Unsupported frame sampling mode: {mode}')
 
 
-def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=None, temporal_factor=1):
+def load_video_from_ids(video_path,
+                        s=None,
+                        e=None,
+                        fps=None,
+                        max_frames=None,
+                        temporal_factor=1):
     if s is not None and e is not None:
         s = s if s >= 0. else 0.
         e = e if e >= 0. else 0.
@@ -383,23 +440,38 @@ def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=None, t
         num_frames_of_video = len(vreader)
 
     # 2. Determine frame range & Calculate frame indices
-    f_start = 0                       if s is None else max(int(s * vid_fps) - 1, 0)
-    f_end   = num_frames_of_video - 1 if e is None else min(int(e * vid_fps) - 1, num_frames_of_video - 1)
+    f_start = 0 if s is None else max(int(s * vid_fps) - 1, 0)
+    f_end = num_frames_of_video - 1 if e is None else min(
+        int(e * vid_fps) - 1, num_frames_of_video - 1)
     frame_indices = list(range(f_start, f_end + 1))
 
     duration = len(frame_indices)
     # 3. Sampling frame indices
     max_frames = max_frames if max_frames is not None else MAX_FRAMES
     if fps is not None and duration / vid_fps < max_frames:
-        sampled_frame_indices = [frame_indices[i] for i in frame_sample(duration, mode='fps', vid_fps=vid_fps, fps=fps)]
+        sampled_frame_indices = [
+            frame_indices[i] for i in frame_sample(
+                duration, mode='fps', vid_fps=vid_fps, fps=fps)
+        ]
     else:
-        sampled_frame_indices = [frame_indices[i] for i in frame_sample(duration, mode='uniform', num_frames=max_frames)]
+        sampled_frame_indices = [
+            frame_indices[i] for i in frame_sample(
+                duration, mode='uniform', num_frames=max_frames)
+        ]
 
     # 4. Acquire frame data
     if os.path.isdir(video_path):
-        frames = [cv2.cvtColor(cv2.imread(os.path.join(video_path, frame_files[frame_idx])), cv2.COLOR_BGR2RGB) for frame_idx in sampled_frame_indices]
+        frames = [
+            cv2.cvtColor(
+                cv2.imread(os.path.join(video_path, frame_files[frame_idx])),
+                cv2.COLOR_BGR2RGB) for frame_idx in sampled_frame_indices
+        ]
     elif video_path.endswith('.gif'):
-        frames = [cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB) for idx, frame in enumerate(gif_reader) if idx in sampled_frame_indices]
+        frames = [
+            cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+            for idx, frame in enumerate(gif_reader)
+            if idx in sampled_frame_indices
+        ]
     else:
         frames = vreader.get_batch(sampled_frame_indices).asnumpy()
 
@@ -408,7 +480,8 @@ def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=None, t
 
     if temporal_factor > 1:
         pad_length = temporal_factor - len(frames) % temporal_factor
-        frames = np.concatenate([frames, frames[-1:].repeat(pad_length, axis=0)])
+        frames = np.concatenate(
+            [frames, frames[-1:].repeat(pad_length, axis=0)])
         [timestamps.append(timestamps[-1] + 1 / fps) for _ in range(pad_length)]
 
     # NOTE: pad the video with black frames
@@ -418,18 +491,16 @@ def load_video_from_ids(video_path, s=None, e=None, fps=None, max_frames=None, t
     return frames, timestamps
 
 
-def load_video(
-    video_path: str,
-    start_time: Optional[float] = None,
-    end_time: Optional[float] = None,
-    fps: Optional[float] = None,
-    max_frames: Optional[float] = None,
-    size: Optional[int] = None,
-    size_divisible: int = 1,
-    precise_time: bool = False,
-    verbose: bool = False,
-    temporal_factor: int = 1
-):
+def load_video(video_path: str,
+               start_time: Optional[float] = None,
+               end_time: Optional[float] = None,
+               fps: Optional[float] = None,
+               max_frames: Optional[float] = None,
+               size: Optional[int] = None,
+               size_divisible: int = 1,
+               precise_time: bool = False,
+               verbose: bool = False,
+               temporal_factor: int = 1):
     """
     Load and process a video file and return the frames and the timestamps of each frame.
 
@@ -449,14 +520,27 @@ def load_video(
         timestamps (List[float]): List of timestamps.
     """
     if start_time is not None and end_time is not None and end_time - start_time < 1:
-        return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+        return load_video_from_ids(video_path,
+                                   start_time,
+                                   end_time,
+                                   fps=fps,
+                                   max_frames=max_frames)
     if os.path.isdir(video_path):
-        return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+        return load_video_from_ids(video_path,
+                                   start_time,
+                                   end_time,
+                                   fps=fps,
+                                   max_frames=max_frames)
     if video_path.endswith('.gif'):
-        return load_video_from_ids(video_path, start_time, end_time, fps=fps, max_frames=max_frames)
+        return load_video_from_ids(video_path,
+                                   start_time,
+                                   end_time,
+                                   fps=fps,
+                                   max_frames=max_frames)
     probe = ffmpeg.probe(video_path)
     duration = float(probe['format']['duration'])
-    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+    video_stream = next((stream for stream in probe['streams']
+                         if stream['codec_type'] == 'video'), None)
     w, h = int(video_stream['width']), int(video_stream['height'])
 
     kwargs, input_kwargs, output_kwargs = {}, {}, {}
@@ -497,13 +581,19 @@ def load_video(
         stream = ffmpeg.filter(stream, "fps", fps=fps, round="down")
     if new_w != w or new_h != h:
         stream = ffmpeg.filter(stream, 'scale', new_w, new_h)
-    stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt="rgb24", **output_kwargs)
+    stream = ffmpeg.output(stream,
+                           "pipe:",
+                           format="rawvideo",
+                           pix_fmt="rgb24",
+                           **output_kwargs)
     out, _ = ffmpeg.run(stream, capture_stdout=True, quiet=not verbose)
 
-    frames = np.frombuffer(out, np.uint8).reshape([-1, new_h, new_w, 3]).transpose([0, 3, 1, 2])
+    frames = np.frombuffer(out, np.uint8).reshape([-1, new_h, new_w,
+                                                   3]).transpose([0, 3, 1, 2])
 
     if fps is not None:
-        timestamps = np.arange(start_time, start_time + duration + 1 / fps, 1 / fps)[:len(frames)]
+        timestamps = np.arange(start_time, start_time + duration + 1 / fps,
+                               1 / fps)[:len(frames)]
     else:
         timestamps = np.linspace(start_time, start_time + duration, len(frames))
 
@@ -515,7 +605,8 @@ def load_video(
 
     if temporal_factor > 1:
         pad_length = temporal_factor - len(frames) % temporal_factor
-        frames = np.concatenate([frames, frames[-1:].repeat(pad_length, axis=0)])
+        frames = np.concatenate(
+            [frames, frames[-1:].repeat(pad_length, axis=0)])
         [timestamps.append(timestamps[-1] + 1 / fps) for _ in range(pad_length)]
 
     frames = [frame for frame in frames]
@@ -523,29 +614,52 @@ def load_video(
     return frames, timestamps
 
 
-def process_video(video_path, processor, s=None, e=None, aspect_ratio='pad', num_frames=None):
+def process_video(video_path,
+                  processor,
+                  s=None,
+                  e=None,
+                  aspect_ratio='pad',
+                  num_frames=None):
     fps = 1 if num_frames is None else None
     # FFmpeg
-    frames, timestamps = load_video(video_path, s, e, fps=fps, max_frames=num_frames)
+    frames, timestamps = load_video(video_path,
+                                    s,
+                                    e,
+                                    fps=fps,
+                                    max_frames=num_frames)
     # Decord
     # frames, timestamps = load_video_from_ids(video_path, s, e, fps=fps, max_frames=num_frames)
 
-    assert len(frames) == len(timestamps), "Number of frames and timestamps must match."
+    assert len(frames) == len(
+        timestamps), "Number of frames and timestamps must match."
 
     if aspect_ratio == 'pad':
-        frames = [expand2square(f, tuple(int(x*255) for x in processor.image_mean)) for f in frames]
+        frames = [
+            expand2square(f, tuple(int(x * 255)
+                                   for x in processor.image_mean))
+            for f in frames
+        ]
 
     if aspect_ratio == 'avt':
-        frames = [processor.preprocess(frame, return_tensors='pt', image_num=len(frames)) for frame in frames]
+        frames = [
+            processor.preprocess(frame,
+                                 return_tensors='pt',
+                                 image_num=len(frames)) for frame in frames
+        ]
         grid_frames = [frames]
     else:
-        frames = processor.preprocess(frames, return_tensors='pt', image_num=len(frames))
+        frames = processor.preprocess(frames,
+                                      return_tensors='pt',
+                                      image_num=len(frames))
         grid_frames = [[frames]]
 
     return grid_frames, timestamps
 
 
-def tokenizer_multimodal_token(prompt, tokenizer, multimodal_token=DEFAULT_IMAGE_TOKEN, return_tensors=None):
+def tokenizer_multimodal_token(prompt,
+                               tokenizer,
+                               multimodal_token=DEFAULT_IMAGE_TOKEN,
+                               return_tensors=None):
     """Tokenize text and multimodal tag to input_ids.
 
     Args:
@@ -557,7 +671,10 @@ def tokenizer_multimodal_token(prompt, tokenizer, multimodal_token=DEFAULT_IMAGE
     if multimodal_token_index is None:
         input_ids = tokenizer(prompt, add_special_tokens=False).input_ids
     else:
-        prompt_chunks = [tokenizer(chunk, add_special_tokens=False).input_ids for idx, chunk in enumerate(prompt.split(multimodal_token))]
+        prompt_chunks = [
+            tokenizer(chunk, add_special_tokens=False).input_ids
+            for idx, chunk in enumerate(prompt.split(multimodal_token))
+        ]
 
         input_ids = []
         for i in range(1, 2 * len(prompt_chunks)):
@@ -583,13 +700,15 @@ def get_model_name_from_path(model_path):
 
 
 class KeywordsStoppingCriteria(StoppingCriteria):
+
     def __init__(self, keywords, tokenizer, input_ids):
         self.keywords = keywords
         self.keyword_ids = []
         self.max_keyword_len = 0
         for keyword in keywords:
             cur_keyword_ids = tokenizer(keyword).input_ids
-            if len(cur_keyword_ids) > 1 and cur_keyword_ids[0] == tokenizer.bos_token_id:
+            if len(cur_keyword_ids
+                  ) > 1 and cur_keyword_ids[0] == tokenizer.bos_token_id:
                 cur_keyword_ids = cur_keyword_ids[1:]
             if len(cur_keyword_ids) > self.max_keyword_len:
                 self.max_keyword_len = len(cur_keyword_ids)
@@ -597,20 +716,26 @@ class KeywordsStoppingCriteria(StoppingCriteria):
         self.tokenizer = tokenizer
         self.start_len = input_ids.shape[1]
 
-    def call_for_batch(self, output_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+    def call_for_batch(self, output_ids: torch.LongTensor,
+                       scores: torch.FloatTensor, **kwargs) -> bool:
         offset = min(output_ids.shape[1] - self.start_len, self.max_keyword_len)
-        self.keyword_ids = [keyword_id.to(output_ids.device) for keyword_id in self.keyword_ids]
+        self.keyword_ids = [
+            keyword_id.to(output_ids.device) for keyword_id in self.keyword_ids
+        ]
         for keyword_id in self.keyword_ids:
             if (output_ids[0, -keyword_id.shape[0]:] == keyword_id).all():
                 return True
-        outputs = self.tokenizer.batch_decode(output_ids[:, -offset:], skip_special_tokens=True)[0]
+        outputs = self.tokenizer.batch_decode(output_ids[:, -offset:],
+                                              skip_special_tokens=True)[0]
         for keyword in self.keywords:
             if keyword in outputs:
                 return True
         return False
 
-    def __call__(self, output_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+    def __call__(self, output_ids: torch.LongTensor, scores: torch.FloatTensor,
+                 **kwargs) -> bool:
         outputs = []
         for i in range(output_ids.shape[0]):
-            outputs.append(self.call_for_batch(output_ids[i].unsqueeze(0), scores))
+            outputs.append(
+                self.call_for_batch(output_ids[i].unsqueeze(0), scores))
         return all(outputs)

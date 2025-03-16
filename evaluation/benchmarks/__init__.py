@@ -12,7 +12,6 @@ from .perception_test import PerceptionTestDataset
 from .tempcompass import TempCompassDataset
 from .videomme import VideoMMEDataset
 
-
 DATASET_REGISTRY = {
     "videomme": VideoMMEDataset,
     "mmvu": MMVUDataset,

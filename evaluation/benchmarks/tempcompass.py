@@ -17,7 +17,6 @@ endpoint = os.getenv("ENDPOINT_URL")
 deployment = os.getenv("DEPLOYMENT_NAME", "gpt-35-turbo-0613")
 subscription_key = os.getenv("AZURE_OPENAI_API_KEY")
 
-
 caption_evaluation_prompt = """
 You will receive a video description and a multi-choice question. Your task is to choose the correct answer and briefly explain the reason why you choose the answer. \
 If none of the choice candidates are correct or the video description lacks enough information to answer the question, just answer "None". \
@@ -62,30 +61,25 @@ Answer: None
 
 
 def prompt_gpt(client, prompt):
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an AI assistant for question answering."
-        },
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
+    messages = [{
+        "role": "system",
+        "content": "You are an AI assistant for question answering."
+    }, {
+        "role": "user",
+        "content": prompt
+    }]
     while True:
         try:
-            # Generate the completion  
-            completion = client.chat.completions.create(  
-                model=deployment,
-                messages=messages,
-                max_tokens=800,  
-                temperature=0.7,  
-                top_p=0.95,  
-                frequency_penalty=0,  
-                presence_penalty=0,
-                stop=None,  
-                stream=False
-            )
+            # Generate the completion
+            completion = client.chat.completions.create(model=deployment,
+                                                        messages=messages,
+                                                        max_tokens=800,
+                                                        temperature=0.7,
+                                                        top_p=0.95,
+                                                        frequency_penalty=0,
+                                                        presence_penalty=0,
+                                                        stop=None,
+                                                        stream=False)
         except:
             traceback.print_exc()
             # if maxtry <= 0:
@@ -100,7 +94,8 @@ def prompt_gpt(client, prompt):
     response_message = completion.choices[0].message.content
 
     # find A, B, C, D, or None
-    prediction_answer = re.findall(r"Answer: [A-D]|Answer: None", response_message)
+    prediction_answer = re.findall(r"Answer: [A-D]|Answer: None",
+                                   response_message)
 
     if len(prediction_answer) == 0:
         return "None"
@@ -111,23 +106,28 @@ def prompt_gpt(client, prompt):
 class TempCompassDataset(BaseEvalDataset):
 
     BENCHMARK_TYPE: str = "mcqa"
-    TASK_TYPES: List[str] = ["action", "direction", "speed", "order", "attribute_change"]
+    TASK_TYPES: List[str] = [
+        "action", "direction", "speed", "order", "attribute_change"
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize Azure OpenAI client with key-based authentication
-        self.client = AzureOpenAI(  
-            azure_endpoint=endpoint,  
-            api_key=subscription_key,  
-            api_version="2024-05-01-preview",  
+        self.client = AzureOpenAI(
+            azure_endpoint=endpoint,
+            api_key=subscription_key,
+            api_version="2024-05-01-preview",
         )
 
     def load_data(self, data_root: str) -> Dict[int, Any]:
         data_dict = {}
         idx = 0
 
-        for task_format in ["yes_no", "captioning", "caption_matching", "multi-choice"]:
-            parquet_file = os.path.join(data_root, task_format, "test-00000-of-00001.parquet")
+        for task_format in [
+                "yes_no", "captioning", "caption_matching", "multi-choice"
+        ]:
+            parquet_file = os.path.join(data_root, task_format,
+                                        "test-00000-of-00001.parquet")
             video_folder = os.path.join(data_root, "videos")
 
             table = pq.read_table(parquet_file)
@@ -136,15 +136,22 @@ class TempCompassDataset(BaseEvalDataset):
             for data in df.itertuples():
                 data_dict[idx] = {
                     # required fields for data loading
-                    "video_path": os.path.join(video_folder, data.video_id + ".mp4"),
-                    "start_time": None,
-                    "end_time": None,
+                    "video_path":
+                        os.path.join(video_folder, data.video_id + ".mp4"),
+                    "start_time":
+                        None,
+                    "end_time":
+                        None,
                     # required fields for evaluation
-                    "task_type": data.dim,
-                    "question_format": task_format,
-                    "ground_truth": data.answer,
+                    "task_type":
+                        data.dim,
+                    "question_format":
+                        task_format,
+                    "ground_truth":
+                        data.answer,
                     # custom fields for instruction generation and post processing
-                    "question": data.question,
+                    "question":
+                        data.question,
                 }
                 idx += 1
 
@@ -184,7 +191,8 @@ class TempCompassDataset(BaseEvalDataset):
         answer = meta_data["ground_truth"]
 
         if question_format == "yes_no":
-            assert "yes" in response.lower() or "no" in response.lower(), f"Invalid yes_no type response: {response}"
+            assert "yes" in response.lower() or "no" in response.lower(
+            ), f"Invalid yes_no type response: {response}"
             if response.lower().startswith(answer):
                 pred = answer
             else:
@@ -218,7 +226,8 @@ class TempCompassDataset(BaseEvalDataset):
         def mt_process(func, lines, num_workers=16):
             # multi-process
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                new_lines = list(tqdm(executor.map(func, lines), total=len(lines)))
+                new_lines = list(
+                    tqdm(executor.map(func, lines), total=len(lines)))
             new_lines = [line for line in new_lines if line is not None]
             return new_lines
 
@@ -245,16 +254,31 @@ class TempCompassDataset(BaseEvalDataset):
 
         total_results = mt_process(process_func, results)
 
-        yes_no_results = [res for res in total_results if self.data_dict[res["data_id"]]["question_format"] == "yes_no"]
-        captioning_results = [res for res in total_results if self.data_dict[res["data_id"]]["question_format"] == "captioning"]
-        captioning_matching_results = [res for res in total_results if self.data_dict[res["data_id"]]["question_format"] == "caption_matching"]
-        multi_choice_results = [res for res in total_results if self.data_dict[res["data_id"]]["question_format"] == "multi-choice"]
+        yes_no_results = [
+            res for res in total_results
+            if self.data_dict[res["data_id"]]["question_format"] == "yes_no"
+        ]
+        captioning_results = [
+            res for res in total_results
+            if self.data_dict[res["data_id"]]["question_format"] == "captioning"
+        ]
+        captioning_matching_results = [
+            res for res in total_results if self.data_dict[res["data_id"]]
+            ["question_format"] == "caption_matching"
+        ]
+        multi_choice_results = [
+            res for res in total_results if self.data_dict[res["data_id"]]
+            ["question_format"] == "multi-choice"
+        ]
 
         metrics, infos = {}, {}
         metrics["yes_no"], infos["yes_no"] = super().evaluate(yes_no_results)
-        metrics["captioning"], infos["captioning"] = super().evaluate(captioning_results)
-        metrics["caption_matching"], infos["caption_matching"] = super().evaluate(captioning_matching_results)
-        metrics["multi_choice"], infos["multi_choice"] = super().evaluate(multi_choice_results)
+        metrics["captioning"], infos["captioning"] = super().evaluate(
+            captioning_results)
+        metrics["caption_matching"], infos["caption_matching"] = super(
+        ).evaluate(captioning_matching_results)
+        metrics["multi_choice"], infos["multi_choice"] = super().evaluate(
+            multi_choice_results)
         metrics["total"], infos["total"] = super().evaluate(total_results)
 
         return metrics, infos

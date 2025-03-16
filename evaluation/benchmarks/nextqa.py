@@ -19,7 +19,8 @@ class NextQADataset(BaseEvalDataset):
         json_file = os.path.join(data_root, "test.csv")
         video_folder = os.path.join(data_root, "NExTVideo")
 
-        vid_to_path = json.load(open(os.path.join(data_root, 'map_vid_vidorID.json')))
+        vid_to_path = json.load(
+            open(os.path.join(data_root, 'map_vid_vidorID.json')))
 
         records = pd.read_csv(json_file)
 
@@ -44,23 +45,32 @@ class NextQADataset(BaseEvalDataset):
             options = [opt for opt in options if not pd.isna(opt)]
 
             option_letters = []
-            for option_idx, option in enumerate(options): 
+            for option_idx, option in enumerate(options):
                 option_letters.append(f"{chr(ord('A') + option_idx)}")
                 if option == answer:
                     answer_idx = option_idx
 
             data_dict[idx] = {
                 # required fields for data loading
-                "video_path": os.path.join(video_folder, vid_to_path[str(record.video)] + '.mp4'),
-                "start_time": None,
-                "end_time": None,
+                "video_path":
+                    os.path.join(video_folder,
+                                 vid_to_path[str(record.video)] + '.mp4'),
+                "start_time":
+                    None,
+                "end_time":
+                    None,
                 # required fields for evaluation
-                "task_type": type_mapping[record.type],
-                "ground_truth": record.answer,
+                "task_type":
+                    type_mapping[record.type],
+                "ground_truth":
+                    record.answer,
                 # custom fields for instruction generation and post processing
-                "question": record.question,
-                "options": options,
-                "option_letters": option_letters,
+                "question":
+                    record.question,
+                "options":
+                    options,
+                "option_letters":
+                    option_letters,
             }
             idx += 1
 
@@ -73,7 +83,8 @@ class NextQADataset(BaseEvalDataset):
         options = meta_data["options"]
 
         option_string = ""
-        for option_idx, (letter, option) in enumerate(zip(option_letters, options)):
+        for option_idx, (letter,
+                         option) in enumerate(zip(option_letters, options)):
             option_string += f"({letter}) {option}\n"
         instruction = f"Question: {question}\nOptions:\n{option_string}Answer with the option\'s letter from the given choices directly and only give the best option."
 
@@ -86,7 +97,9 @@ class NextQADataset(BaseEvalDataset):
 
         response = response.replace('answer', '')
         response = response.replace('Answer', '')
-        pred_answer = re.findall(f'[\(,\ ]*[{option_letters[0]}-{option_letters[-1]}][\),\ ]*', response)
+        pred_answer = re.findall(
+            f'[\(,\ ]*[{option_letters[0]}-{option_letters[-1]}][\),\ ]*',
+            response)
 
         find_flag = False
         if len(pred_answer) == 0:

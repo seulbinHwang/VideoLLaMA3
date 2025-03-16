@@ -10,18 +10,21 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 
 import sys
+
 sys.path.append('./')
 from evaluation.register import INFERENCES
 from videollama3 import disable_torch_init
 
 # NOTE: Ignore TypedStorage warning, which refers to this link~(https://github.com/pytorch/pytorch/issues/97207#issuecomment-1494781560)
-warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
+warnings.filterwarnings('ignore',
+                        category=UserWarning,
+                        message='TypedStorage is deprecated')
 
 
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
@@ -40,7 +43,7 @@ class EgoschemaDataset(Dataset):
 
     def __len__(self):
         return len(self.data_list)
-    
+
     def __getitem__(self, idx):
         line = self.data_list[idx]
         q_uid = line['q_uid']
@@ -55,7 +58,7 @@ class EgoschemaDataset(Dataset):
 
         return {
             'q_uid': q_uid,
-            'video': video_tensor, 
+            'video': video_tensor,
             'record': line,
         }
 
@@ -89,7 +92,8 @@ def egoschema_dump(q_uid, instruct, options, output):
             pred_idx = letters.index(pred_answer)
             find_flag = True
 
-        assert find_flag, 'The video \"{}\" instruct: \n\"{}\"\n output: \n\"{}\"\n is not in the expected format'.format(q_uid, instruct, output)
+        assert find_flag, 'The video \"{}\" instruct: \n\"{}\"\n output: \n\"{}\"\n is not in the expected format'.format(
+            q_uid, instruct, output)
     except:
         traceback.print_exc()
         pred_idx = 2
@@ -104,14 +108,19 @@ def run_inference(args):
 
     model, processor, tokenizer = model_init(args.model_path)
 
-    answer_file = args.answer_file.replace('.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
+    answer_file = args.answer_file.replace(
+        '.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
     ans_file = open(answer_file, "w")
 
     questions = json.load(open(args.question_file, "r"))
     questions = get_chunk(questions, args.num_chunks, args.chunk_idx)
     dataset = EgoschemaDataset(args.video_folder, questions, processor['video'])
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
+    dataloader = DataLoader(dataset,
+                            batch_size=args.batch_size,
+                            shuffle=False,
+                            collate_fn=collate_fn,
+                            num_workers=args.num_workers)
 
     # Iterate over each sample in the ground truth file
     for i, (vids, videos, records) in enumerate(tqdm(dataloader)):
@@ -127,7 +136,7 @@ def run_inference(args):
         a4 = line['option 4']
         options = [a0, a1, a2, a3, a4]
 
-        instruct = f'Select the best answer to the following multiple-choice question based on the video.\n{question}\nOptions:\n(A) {a0}\n(B) {a1}\n(C) {a2}\n(D) {a3}\n(E) {a4}\nAnswer with the option\'s letter from the given choices directly and only give the best option. The best answer is: ' 
+        instruct = f'Select the best answer to the following multiple-choice question based on the video.\n{question}\nOptions:\n(A) {a0}\n(B) {a1}\n(C) {a2}\n(D) {a3}\n(E) {a4}\nAnswer with the option\'s letter from the given choices directly and only give the best option. The best answer is: '
 
         try:
             pred = mm_infer(
@@ -149,12 +158,21 @@ def run_inference(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Multiple-Choice Video QA Evaluation Script.')
+    parser = argparse.ArgumentParser(
+        description='Multiple-Choice Video QA Evaluation Script.')
 
     parser.add_argument('--model-path', help='', required=True)
-    parser.add_argument('--video-folder', help='Directory containing video files.', required=True)
-    parser.add_argument('--question-file', help='Path to the ground truth file containing question.', required=True)
-    parser.add_argument('--answer-file', help='Path to the ground truth file containing answers.', required=True)
+    parser.add_argument('--video-folder',
+                        help='Directory containing video files.',
+                        required=True)
+    parser.add_argument(
+        '--question-file',
+        help='Path to the ground truth file containing question.',
+        required=True)
+    parser.add_argument(
+        '--answer-file',
+        help='Path to the ground truth file containing answers.',
+        required=True)
     parser.add_argument("--num-chunks", type=int, default=1)
     parser.add_argument("--chunk-idx", type=int, default=0)
     parser.add_argument("--device", type=str, required=False, default='cuda:0')

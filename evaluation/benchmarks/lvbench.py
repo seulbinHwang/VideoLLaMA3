@@ -26,10 +26,12 @@ class LVBenchDataset(BaseEvalDataset):
         for data in data_list:
             video_id = data["key"]
             for video_format in ["mp4", "avi", "mov", "mkv"]:
-                video_path = os.path.join(video_folder, f"{video_id}.{video_format}")
+                video_path = os.path.join(video_folder,
+                                          f"{video_id}.{video_format}")
                 if os.path.exists(video_path):
                     break
-            assert os.path.exists(video_path), f"Cannot find the video file: {video_path}"
+            assert os.path.exists(
+                video_path), f"Cannot find the video file: {video_path}"
 
             for qa_data in data["qa"]:
                 data_dict[qa_data["uid"]] = {
@@ -54,5 +56,6 @@ class LVBenchDataset(BaseEvalDataset):
     def process_response(self, data_id: Union[int, str], response: str) -> int:
         matches = re.findall(r"\b[A-D]\b", response.upper())
         if len(matches) == 0:
-            raise ValueError(f"Cannot find the answer in the response: {response}")
+            raise ValueError(
+                f"Cannot find the answer in the response: {response}")
         return matches[0]

@@ -24,7 +24,8 @@ def save_json(data, path):
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
 
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
@@ -41,11 +42,13 @@ def set_random_seed(seed):
 
 
 class RealWorldQADataet(Dataset):
+
     def __init__(self, data_path, processor, num_chunks, chunk_idx):
         self.dataset = load_dataset(data_path, split='test')
 
         if num_chunks > 1:
-            self.index_list = get_chunk(list(range(len(self.dataset))), num_chunks, chunk_idx)
+            self.index_list = get_chunk(list(range(len(self.dataset))),
+                                        num_chunks, chunk_idx)
         else:
             self.index_list = list(range(len(self.dataset)))
 
@@ -93,24 +96,31 @@ def run_inference(args):
 
     assert args.batch_size == 1, "Batch size must be 1 for inference"
 
-    dataset = RealWorldQADataet(data_path = args.data_path,
-                                processor = processor['image'],
-                                num_chunks = args.num_chunks,
-                                chunk_idx = args.chunk_idx)
+    dataset = RealWorldQADataet(data_path=args.data_path,
+                                processor=processor['image'],
+                                num_chunks=args.num_chunks,
+                                chunk_idx=args.chunk_idx)
 
-    dataloader = DataLoader(dataset, shuffle=False, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_fn)
+    dataloader = DataLoader(dataset,
+                            shuffle=False,
+                            batch_size=args.batch_size,
+                            num_workers=args.num_workers,
+                            collate_fn=collate_fn)
 
     if args.num_chunks > 1:
-        output_file = args.output_file.replace('.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
+        output_file = args.output_file.replace(
+            '.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
     else:
         output_file = args.output_file
 
     results = {}
-    for idx, (image, question, question_id, answer) in enumerate(tqdm(dataloader)):
+    for idx, (image, question, question_id,
+              answer) in enumerate(tqdm(dataloader)):
 
         image_tensor = image[0]
 
-        query = question[0] if args.instructions_message == '' else f'{question[0]}\n{args.instructions_message}'
+        query = question[
+            0] if args.instructions_message == '' else f'{question[0]}\n{args.instructions_message}'
         question_id = question_id[0]
         answer = answer[0]
 
@@ -139,7 +149,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--model-path', help='', required=True)
     parser.add_argument('--data-path', help='', required=True)
-    parser.add_argument('--output-file', help='Directory to save the model results JSON.', required=True)
+    parser.add_argument('--output-file',
+                        help='Directory to save the model results JSON.',
+                        required=True)
     parser.add_argument("--batch-size", type=int, required=False, default=1)
     parser.add_argument("--num-workers", type=int, required=False, default=8)
     parser.add_argument("--num-chunks", type=int, default=1)

@@ -5,19 +5,18 @@ from typing import Any, Dict, List, Union
 
 from .base import BaseEvalDataset
 
-
 MCQA_TASKS = {
-    "TR:  (Topic Reasoning)":     ("7_topic_reasoning.json", "7_topic_reasoning"),
+    "TR:  (Topic Reasoning)": ("7_topic_reasoning.json", "7_topic_reasoning"),
     "AR:  (Anomaly Recognition)": ("6_anomaly_reco.json", "6_anomaly_reco"),
-    "NQA: (Needle QA)":           ("2_needle.json", "2_needle"),
-    "ER:  (Ego Reasoning)":       ("3_ego.json", "3_ego"),
-    "PQA: (Plot QA)":             ("1_plotQA.json", "1_plotQA"),
-    "AC:  (Action Count)":        ("4_count.json",  "4_count"),
-    "AO:  (Action Order)":        ("5_order.json",  "5_order"),
+    "NQA: (Needle QA)": ("2_needle.json", "2_needle"),
+    "ER:  (Ego Reasoning)": ("3_ego.json", "3_ego"),
+    "PQA: (Plot QA)": ("1_plotQA.json", "1_plotQA"),
+    "AC:  (Action Count)": ("4_count.json", "4_count"),
+    "AO:  (Action Order)": ("5_order.json", "5_order"),
 }
 
 OQA_TASKS = {
-    "VS:  (Video Summary)":        ("9_summary.json", "9_summary"),
+    "VS:  (Video Summary)": ("9_summary.json", "9_summary"),
     "SSC: (Sub-Scene Captioning)": ("8_sub_scene.json", "8_sub_scene"),
 }
 
@@ -43,7 +42,7 @@ class MLVUDataset(BaseEvalDataset):
                 options = data["candidates"]
 
                 option_letters = []
-                for option_idx, option in enumerate(options): 
+                for option_idx, option in enumerate(options):
                     option_letters.append(f"{chr(ord('A') + option_idx)}")
                     if option == answer:
                         answer_idx = option_idx
@@ -72,7 +71,8 @@ class MLVUDataset(BaseEvalDataset):
         options = meta_data["options"]
 
         option_string = ""
-        for option_idx, (letter, option) in enumerate(zip(option_letters, options)):
+        for option_idx, (letter,
+                         option) in enumerate(zip(option_letters, options)):
             option_string += f"({letter}) {option}\n"
         instruction = f"Question: {question}\nOptions:\n{option_string}Answer with the option\'s letter from the given choices directly and only give the best option."
 
@@ -85,7 +85,9 @@ class MLVUDataset(BaseEvalDataset):
 
         response = response.replace('answer', '')
         response = response.replace('Answer', '')
-        pred_answer = re.findall(f'[\(,\ ]*[{option_letters[0]}-{option_letters[-1]}][\),\ ]*', response)
+        pred_answer = re.findall(
+            f'[\(,\ ]*[{option_letters[0]}-{option_letters[-1]}][\),\ ]*',
+            response)
 
         find_flag = False
         if len(pred_answer) == 0:

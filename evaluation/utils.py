@@ -24,14 +24,16 @@ class CUDADataLoader(DataLoader):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stream = torch.cuda.Stream() # create a new cuda stream in each process
+        self.stream = torch.cuda.Stream(
+        )  # create a new cuda stream in each process
         self.queue = queue.Queue(64)
 
     def preload(self):
         batch = next(self.iter)
         if batch is None:
             return None
-        torch.cuda.current_stream().wait_stream(self.stream)  # wait tensor to put on GPU
+        torch.cuda.current_stream().wait_stream(
+            self.stream)  # wait tensor to put on GPU
         with torch.cuda.stream(self.stream):
             batch = to_cuda(batch)
         self.queue.put(batch)
@@ -41,6 +43,7 @@ class CUDADataLoader(DataLoader):
         self.queue.queue.clear()
         # reset data iterator
         self.iter = super().__iter__()
+
         # starting a new thread to prefetch data
         def data_to_cuda_then_queue():
             while True:
@@ -60,7 +63,7 @@ class CUDADataLoader(DataLoader):
 
     def __next__(self):
         next_item = self.queue.get()
-        # NOTE: __iter__ will be stopped when __next__ raises StopIteration 
+        # NOTE: __iter__ will be stopped when __next__ raises StopIteration
         if next_item is None:
             raise StopIteration
         return next_item

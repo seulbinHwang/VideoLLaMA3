@@ -24,11 +24,13 @@ class PerceptionTestDataset(BaseEvalDataset):
         for data in data_list:
             video_id = data["metadata"]["video_id"]
             for video_format in ["mp4", "avi", "mov", "mkv"]:
-                temp_path = os.path.join(video_folder, f"{video_id}.{video_format}")
+                temp_path = os.path.join(video_folder,
+                                         f"{video_id}.{video_format}")
                 if os.path.exists(temp_path):
                     video_path = temp_path
                     break
-            assert os.path.exists(video_path), f"Cannot find the video file: {video_id}"
+            assert os.path.exists(
+                video_path), f"Cannot find the video file: {video_id}"
 
             for question in data["mc_question"]:
                 question_id = question["id"]
@@ -69,19 +71,26 @@ class PerceptionTestDataset(BaseEvalDataset):
             pred_idx = letters.index(pred_answer)
         else:
             tmp_options = [x.lower() for x in _options]
-            assert response.lower() in tmp_options, f"Cannot find the answer in the options: {response}"
+            assert response.lower(
+            ) in tmp_options, f"Cannot find the answer in the options: {response}"
             tmp_options = [x.lower() for x in _options]
             pred_idx = tmp_options.index(response.lower())
 
         return pred_idx
 
-    def evaluate(self, results: List[Dict[str, Any]]) -> (None, Dict[str, List[Dict[str, Any]]]):
+    def evaluate(
+        self,
+        results: List[Dict[str,
+                           Any]]) -> (None, Dict[str, List[Dict[str, Any]]]):
         characters = string.ascii_letters + string.digits
-        file_name = "perceptiontest-eval-" + "".join(random.choice(characters) for _ in range(16)) + ".json"
+        file_name = "perceptiontest-eval-" + "".join(
+            random.choice(characters) for _ in range(16)) + ".json"
         save_path = os.path.join(".cache", file_name)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-        submission = {result["data_id"]: result["prediction"] for result in results}
+        submission = {
+            result["data_id"]: result["prediction"] for result in results
+        }
         submission = defaultdict(list)
         for data in results:
             meta_data = self.data_dict[data["data_id"]]
@@ -89,9 +98,11 @@ class PerceptionTestDataset(BaseEvalDataset):
             video_id = meta_data["video_id"]
             question_id = meta_data["question_id"]
             options = meta_data["options"]
-            submission[video_id].append(
-                {"id": question_id, "answer_id": answer_id, "answer": options[answer_id]}
-            )
+            submission[video_id].append({
+                "id": question_id,
+                "answer_id": answer_id,
+                "answer": options[answer_id]
+            })
 
         # with open(save_path, "w") as f:
         #     json.dump(submission, f, indent=4)

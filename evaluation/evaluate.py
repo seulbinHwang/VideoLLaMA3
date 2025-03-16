@@ -15,6 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 
 import sys
+
 sys.path.append(".")
 from videollama3 import disable_torch_init, model_init, mm_infer
 from evaluation.benchmarks import build_dataset
@@ -32,7 +33,10 @@ def parse_args():
 
     parser.add_argument("--fps", type=int, default=1)
     parser.add_argument("--max-frames", "--max_frames", type=int, default=180)
-    parser.add_argument("--max-visual-tokens", "--max_visual_tokens", type=int, default=None)
+    parser.add_argument("--max-visual-tokens",
+                        "--max_visual_tokens",
+                        type=int,
+                        default=None)
 
     parser.add_argument("--save-path", "--save_path", type=str, default=None)
 
@@ -63,7 +67,8 @@ def show_metrics(metrics: Dict[str, Any], benchmark: str):
 
 
 def main():
-    dist.init_process_group(backend="gloo", timeout=datetime.timedelta(minutes=120))
+    dist.init_process_group(backend="gloo",
+                            timeout=datetime.timedelta(minutes=120))
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
     global_rank = dist.get_rank()
@@ -73,11 +78,9 @@ def main():
 
     disable_torch_init()
     model_init, mm_infer = INFERENCES(args.model_path)
-    model, processor = model_init(
-        args.model_path,
-        args.max_visual_tokens,
-        device_map={"": f"cuda:{local_rank}"}
-    )
+    model, processor = model_init(args.model_path,
+                                  args.max_visual_tokens,
+                                  device_map={"": f"cuda:{local_rank}"})
 
     dataset = build_dataset(
         args.benchmark,
@@ -98,7 +101,11 @@ def main():
     )
 
     results = []
-    for idx, data in enumerate(tqdm(dataloader, desc=f"Rank {global_rank}", total=len(dataloader), position=local_rank)):
+    for idx, data in enumerate(
+            tqdm(dataloader,
+                 desc=f"Rank {global_rank}",
+                 total=len(dataloader),
+                 position=local_rank)):
         data_ids = data["data_ids"]
         text_inputs = data["text_inputs"]
         for data_id, text_input in zip(data_ids, text_inputs):
@@ -117,14 +124,12 @@ def main():
                 print(f"Error in data_id: {data_id}")
                 exit(0)
 
-            results.append(
-                {
-                    "data_id": data_id,
-                    "response": response,
-                    "prediction": prediction,
-                }
-            )
-    
+            results.append({
+                "data_id": data_id,
+                "response": response,
+                "prediction": prediction,
+            })
+
     assert len(results) == dataset.n_samples
 
     del model, data

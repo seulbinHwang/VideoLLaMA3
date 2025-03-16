@@ -19,18 +19,21 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 
 import sys
+
 sys.path.append('./')
 from evaluation.register import INFERENCES
 from videollama3 import disable_torch_init
 
 # NOTE: Ignore TypedStorage warning, which refers to this link~(https://github.com/pytorch/pytorch/issues/97207#issuecomment-1494781560)
-warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
+warnings.filterwarnings('ignore',
+                        category=UserWarning,
+                        message='TypedStorage is deprecated')
 
 
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
@@ -127,10 +130,13 @@ class BackgroundGenerator(threading.Thread):
 
 
 class CUDADataLoader(DataLoader):
+
     def __init__(self, dataset, **kwargs):
         super().__init__(dataset, **kwargs)
-        local_rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
-        self.stream = torch.cuda.Stream(local_rank) # create a new cuda stream in each process
+        local_rank = torch.distributed.get_rank(
+        ) if torch.distributed.is_initialized() else 0
+        self.stream = torch.cuda.Stream(
+            local_rank)  # create a new cuda stream in each process
         self.local_rank = local_rank
 
     def __iter__(self):
@@ -162,11 +168,14 @@ class CUDADataLoader(DataLoader):
         with torch.cuda.stream(self.stream):
             frames = self.batch['video'][0][0][0]
             for idx, frame in enumerate(frames):
-                frames[idx]['pixel_values'] = frame['pixel_values'].to(device=self.local_rank, non_blocking=True)
-                frames[idx]['image_grid_thw'] = frame['image_grid_thw'].to(device=self.local_rank, non_blocking=True)
+                frames[idx]['pixel_values'] = frame['pixel_values'].to(
+                    device=self.local_rank, non_blocking=True)
+                frames[idx]['image_grid_thw'] = frame['image_grid_thw'].to(
+                    device=self.local_rank, non_blocking=True)
 
     def __next__(self):
-        torch.cuda.current_stream().wait_stream(self.stream)  # wait tensor to put on GPU
+        torch.cuda.current_stream().wait_stream(
+            self.stream)  # wait tensor to put on GPU
         batch = self.batch
         if batch is None:
             raise StopIteration
@@ -198,7 +207,7 @@ def get_seq_frames(total_num_frames, desired_num_frames):
     for i in range(desired_num_frames):
         # Calculate the start and end indices of each segment
         start = seg_size * i
-        end   = seg_size * (i + 1)
+        end = seg_size * (i + 1)
 
         # Append the middle index of the segment to the list
         seq.append((start + end) // 2)
@@ -210,7 +219,12 @@ class VideoMMEDataset(Dataset):
 
     video_formats = ['.mp4', '.avi', '.mov', '.mkv']
 
-    def __init__(self, video_folder, subtitle_folder, data_list, processor, num_frames=8):
+    def __init__(self,
+                 video_folder,
+                 subtitle_folder,
+                 data_list,
+                 processor,
+                 num_frames=8):
         self.video_folder = video_folder
         self.subtitle_folder = subtitle_folder
         self.data_list = data_list
@@ -219,7 +233,7 @@ class VideoMMEDataset(Dataset):
 
     def __len__(self):
         return len(self.data_list)
-    
+
     def __getitem__(self, idx):
         line = self.data_list[idx]
 
@@ -252,7 +266,9 @@ class VideoMMEDataset(Dataset):
             for sub in subs:
                 if frame_idx == len(frame_timestamps):
                     break
-                while frame_timestamps[frame_idx] < sub.start or frame_timestamps[frame_idx] > sub.end:
+                while frame_timestamps[
+                        frame_idx] < sub.start or frame_timestamps[
+                            frame_idx] > sub.end:
                     frame_idx += 1
                     if frame_idx == len(frame_timestamps):
                         break
@@ -271,9 +287,9 @@ class VideoMMEDataset(Dataset):
 
 def collate_fn(batch):
     return {
-        'video':    [x['video'] for x in batch],
+        'video': [x['video'] for x in batch],
         'subtitle': [x['subtitle'] for x in batch],
-        'record':   [x['record'] for x in batch],
+        'record': [x['record'] for x in batch],
     }
 
 
@@ -288,21 +304,25 @@ def load_parquet(parquet_file):
 
         if len(jsons) < int(record.video_id):
             jsons.append({
-                "video_id": record.video_id,
-                "youtube_id": record.videoID,
-                "url": record.url,
-                "duration": record.duration,
-                "domain": record.domain,
-                "sub_category": record.sub_category,
-                "questions": [
-                    {
-                        "question_id": record.question_id,
-                        "task_type": record.task_type,
-                        "question": record.question,
-                        "choices": list(record.options),
-                        "answer": record.answer,
-                    }
-                ]
+                "video_id":
+                    record.video_id,
+                "youtube_id":
+                    record.videoID,
+                "url":
+                    record.url,
+                "duration":
+                    record.duration,
+                "domain":
+                    record.domain,
+                "sub_category":
+                    record.sub_category,
+                "questions": [{
+                    "question_id": record.question_id,
+                    "task_type": record.task_type,
+                    "question": record.question,
+                    "choices": list(record.options),
+                    "answer": record.answer,
+                }]
             })
         else:
             jsons[-1]['questions'].append({
@@ -345,7 +365,8 @@ def videomme_dump(record, instruct, options, output):
                 opt2 = opt
                 if opt in digit2word:
                     opt2 = digit2word[opt]
-                if opt.lower() in output.lower() or opt2.lower() in output.lower():
+                if opt.lower() in output.lower() or opt2.lower(
+                ) in output.lower():
                     pred_idx = idx
                     find_flag = True
                     break
@@ -355,7 +376,8 @@ def videomme_dump(record, instruct, options, output):
             pred_idx = letters.index(pred_answer)
             find_flag = True
 
-        assert find_flag, 'The video \"{}\" instruct: \n\"{}\"\n output: \n\"{}\"\n is not in the expected format'.format(record['youtube_id'], instruct, output)
+        assert find_flag, 'The video \"{}\" instruct: \n\"{}\"\n output: \n\"{}\"\n is not in the expected format'.format(
+            record['youtube_id'], instruct, output)
     except:
         traceback.print_exc()
         pred_idx = 2
@@ -371,14 +393,16 @@ def run_inference(args):
     # Initialize the model
     model, processor, tokenizer = model_init(args.model_path)
 
-    answer_file = args.answer_file.replace('.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
+    answer_file = args.answer_file.replace(
+        '.json', f'_{args.num_chunks}_{args.chunk_idx}.json')
     answer_sub_file = answer_file.replace('.json', '_sub.json')
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
     ans_file = open(answer_file, "w")
     ans_sub_file = open(answer_sub_file, "w")
 
-    num_frames = model.config.num_frames if hasattr(model.config, "num_frames") else 8
+    num_frames = model.config.num_frames if hasattr(model.config,
+                                                    "num_frames") else 8
 
     # convert parquet to json
     questions = load_parquet(args.question_file)
@@ -386,8 +410,14 @@ def run_inference(args):
     random.seed(42)
     random.shuffle(questions)
     questions = get_chunk(questions, args.num_chunks, args.chunk_idx)
-    dataset = VideoMMEDataset(args.video_folder, args.subtitle_folder, questions, processor['video'], num_frames)
-    dataloader = CUDADataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=args.num_workers, collate_fn=collate_fn)
+    dataset = VideoMMEDataset(args.video_folder, args.subtitle_folder,
+                              questions, processor['video'], num_frames)
+    dataloader = CUDADataLoader(dataset,
+                                batch_size=args.batch_size,
+                                shuffle=False,
+                                pin_memory=True,
+                                num_workers=args.num_workers,
+                                collate_fn=collate_fn)
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=args.num_workers, collate_fn=collate_fn)
 
     # Iterate over each sample in the ground truth file
@@ -421,12 +451,24 @@ def run_inference(args):
                 instruct += f"{cho}\n"
             # instruct += "The best option is: "
             instruct += "Answer with the option\'s letter from the given choices directly and only give the best option. The best answer is: "
-            output = mm_infer(video_tensor, instruct, model=model, tokenizer=tokenizer, modal='video', do_sample=False)
-            new_record['questions'][idx]['response'] = videomme_dump(record, instruct, options, output)
+            output = mm_infer(video_tensor,
+                              instruct,
+                              model=model,
+                              tokenizer=tokenizer,
+                              modal='video',
+                              do_sample=False)
+            new_record['questions'][idx]['response'] = videomme_dump(
+                record, instruct, options, output)
 
             instruct_sub = f"This video's subtitles are listed below:\n{subtitle}\n" + instruct
-            output_sub = mm_infer(video_tensor, instruct_sub, model=model, tokenizer=tokenizer, modal='video', do_sample=False)
-            new_record_sub['questions'][idx]['response'] = videomme_dump(record, instruct_sub, options, output_sub)
+            output_sub = mm_infer(video_tensor,
+                                  instruct_sub,
+                                  model=model,
+                                  tokenizer=tokenizer,
+                                  modal='video',
+                                  do_sample=False)
+            new_record_sub['questions'][idx]['response'] = videomme_dump(
+                record, instruct_sub, options, output_sub)
 
         ans_file.write(json.dumps(new_record) + ",\n")
         ans_sub_file.write(json.dumps(new_record_sub) + ",\n")
@@ -439,10 +481,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model-path', help='', required=True)
-    parser.add_argument('--video-folder', help='Directory containing video files.', required=True)
-    parser.add_argument('--subtitle-folder', help='Directory containing subtitle files.', required=True)
-    parser.add_argument('--question-file', help='Path to the ground truth file containing question.', required=True)
-    parser.add_argument('--answer-file', help='Path to the ground truth file containing answers.', required=True)
+    parser.add_argument('--video-folder',
+                        help='Directory containing video files.',
+                        required=True)
+    parser.add_argument('--subtitle-folder',
+                        help='Directory containing subtitle files.',
+                        required=True)
+    parser.add_argument(
+        '--question-file',
+        help='Path to the ground truth file containing question.',
+        required=True)
+    parser.add_argument(
+        '--answer-file',
+        help='Path to the ground truth file containing answers.',
+        required=True)
     parser.add_argument("--num-chunks", type=int, default=1)
     parser.add_argument("--chunk-idx", type=int, default=0)
     parser.add_argument("--device", type=str, required=False, default='cuda:0')

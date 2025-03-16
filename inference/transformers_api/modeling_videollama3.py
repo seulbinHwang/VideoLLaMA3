@@ -364,6 +364,7 @@ class Videollama3Qwen2ForCausalLM(Qwen2ForCausalLM, Videollama3MetaForCausalLM):
         )
 
     """
+
     def __init__(self, config, **kwargs):
         super(Qwen2ForCausalLM, self).__init__(config)
         self.model = Videollama3Qwen2Model(config)

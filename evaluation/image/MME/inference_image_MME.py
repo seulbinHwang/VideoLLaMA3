@@ -17,12 +17,13 @@ from videollama3 import disable_torch_init
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
     return chunks[k]
+
 
 def set_random_seed(seed):
     """Set random seeds."""
@@ -34,7 +35,9 @@ def set_random_seed(seed):
 
 
 class MMEDataset(Dataset):
-    def __init__(self, question_file, image_folder, processor, num_chunks, chunk_idx):
+
+    def __init__(self, question_file, image_folder, processor, num_chunks,
+                 chunk_idx):
 
         questions = [json.loads(q) for q in open(question_file, "r")]
 
@@ -79,11 +82,17 @@ def run_inference(args):
 
     assert args.batch_size == 1, "Batch size must be 1 for inference"
 
-    dataset = MMEDataset(args.question_file, args.image_folder, processor['image'],  args.num_chunks, args.chunk_idx)
-    dataloader = DataLoader(dataset, shuffle=False, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_fn)
+    dataset = MMEDataset(args.question_file, args.image_folder,
+                         processor['image'], args.num_chunks, args.chunk_idx)
+    dataloader = DataLoader(dataset,
+                            shuffle=False,
+                            batch_size=args.batch_size,
+                            num_workers=args.num_workers,
+                            collate_fn=collate_fn)
 
     if args.num_chunks > 1:
-        output_file = args.output_file.replace('.jsonl', f'_{args.num_chunks}_{args.chunk_idx}.jsonl')
+        output_file = args.output_file.replace(
+            '.jsonl', f'_{args.num_chunks}_{args.chunk_idx}.jsonl')
     else:
         output_file = args.output_file.replace('.jsonl', f'_1_0.jsonl')
 
@@ -105,12 +114,12 @@ def run_inference(args):
             do_sample=False,
         )
 
-        ans_file.write(json.dumps({
-            'question_id': question_id,
-            "prompt": question,
-            "text": output
-        }) + "\n")
-
+        ans_file.write(
+            json.dumps({
+                'question_id': question_id,
+                "prompt": question,
+                "text": output
+            }) + "\n")
 
 
 if __name__ == '__main__':
@@ -122,7 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int, required=False, default=8)
     parser.add_argument('--num-chunks', type=int, default=1)
     parser.add_argument('--chunk-idx', type=int, default=0)
-    parser.add_argument('--output-file', help='Directory to save the model results JSON.')
+    parser.add_argument('--output-file',
+                        help='Directory to save the model results JSON.')
 
     args = parser.parse_args()
 

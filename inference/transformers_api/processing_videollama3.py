@@ -148,12 +148,10 @@ def load_video_from_ids(video_path,
     # 1. Loading Video
     if os.path.isdir(video_path):
         frame_files = sorted(os.listdir(video_path))
-
         vid_fps = 3
         num_frames_of_video = len(frame_files)
     elif video_path.endswith('.gif'):
         gif_reader = imageio.get_reader(video_path)
-
         vid_fps = 25
         num_frames_of_video = len(gif_reader)
     else:
@@ -361,17 +359,18 @@ class Videollama3Qwen2Processor(ProcessorMixin):
             raise ValueError(f"Unsupported image path type: {type(image_path)}")
         return images
 
-    def load_video(self,
-                   video_path: str,
-                   start_time: Optional[float] = None,
-                   end_time: Optional[float] = None,
-                   fps: Optional[float] = None,
-                   max_frames: Optional[float] = None,
-                   size: Optional[int] = None,
-                   size_divisible: int = 1,
-                   precise_time: bool = False,
-                   verbose: bool = False,
-                   temporal_factor: int = 1):
+    def load_video(
+            self,
+            video_path: str,  ###
+            start_time: Optional[float] = None,  ###
+            end_time: Optional[float] = None,  ###
+            fps: Optional[float] = None,  ###
+            max_frames: Optional[float] = None,  ###
+            size: Optional[int] = None,
+            size_divisible: int = 1,
+            precise_time: bool = False,
+            verbose: bool = False,
+            temporal_factor: int = 1) -> Tuple[List[Image.Image], List[float]]:
         """
         Load and process a video file and return the frames and the timestamps of each frame.
 
@@ -462,8 +461,9 @@ class Videollama3Qwen2Processor(ProcessorMixin):
         out, _ = ffmpeg.run(stream, capture_stdout=True, quiet=not verbose)
 
         frames = np.frombuffer(out,
-                               np.uint8).reshape([-1, new_h, new_w,
-                                                  3]).transpose([0, 3, 1, 2])
+                               np.uint8).reshape([-1, new_h, new_w, 3
+                                                 ]).transpose([0, 3, 1, 2
+                                                              ])  # (N, 3, H, W)
 
         if fps is not None:
             timestamps = np.arange(start_time, start_time + duration + 1 / fps,
@@ -491,43 +491,78 @@ class Videollama3Qwen2Processor(ProcessorMixin):
 
         return frames, timestamps
 
-    def _load_multimodal_data(self, conversation: Conversation):
-        multimodal_info = defaultdict(list)
+    def _load_multimodal_data(
+            self,
+            conversation: Conversation) -> Conversation:  # List[Dict[str, Any]]
+        multimodal_info = defaultdict(list)  # Dict[str, List]
+        # new_conversation: List[Dict[str, Any]]
         new_conversation = []
-        for message in conversation:
+        for message in conversation:  # conversation 은 batch 개의 message 로 구성된다.
+            # message: Dict[str, Any]
             new_message = {"role": message["role"]}
             if not isinstance(message["content"], (list, tuple)):
                 new_message["content"] = message["content"]
                 new_conversation.append(new_message)
                 continue
-
+            # new_contents: List[Dict[str, Any]]
             new_contents = []
-            for content in message["content"]:
+            # message["content"]: List[Dict[str, Any]]
+            for content in message[
+                    "content"]:  # 1 batch message 는 여러개의 content 로 구성된다.
                 if not isinstance(content, dict):
                     new_contents.append(content)
                     continue
                 assert "type" in content, "Content must have 'type' field."
+                # content: Dict[str, Any]
                 if content["type"] in [
                         "image", "video"
                 ] and content["type"] in content and isinstance(
                         content[content["type"]], dict):
                     # TODO: support other types which are not compatible with json
+                    # load_args: Dict[str, Any] -> {"video_path": video_path, "fps": 1, "max_frames": 180}
                     load_args = content[content["type"]]
                     data_id = json.dumps({
                         k: v
                         for k, v in load_args.items()
                         if not k in ["start_time", "end_time"]
                     })
+                    # new_content: Dict[str, Any]
                     new_content = copy.deepcopy(content)
+                    # multimodal_info: Dict[str, List[Dict[str, Any]]]
+                    """
+                    json_a = {"video_path": video_path, "fps": 1, "max_frames": 180} 의 json 화 된 결과
+                    multimodal_info
+                        - key: json_a
+                        - value: List
+                                [
+                                    {
+                                        "type": "video",
+                                        "video": {"video_path": video_path, "fps": 1, "max_frames": 180}
+                                    }, ... {}
+                                ]
+                    """
                     multimodal_info[data_id].append(new_content)
+                    # new_contents: List[Dict[str, Any]]
                     new_contents.append(new_content)
                 else:
+                    # new_contents: List[Dict[str, Any]]
                     new_contents.append(content)
 
             new_message["content"] = new_contents
             new_conversation.append(new_message)
 
         for data_id, contents in multimodal_info.items():
+            """
+            data_id: str
+                {"video_path": video_path, "fps": 1, "max_frames": 180} 의 json 화 된 결과
+            contents: List[Dict[str, Any]]
+                [
+                    {
+                        "type": "video",
+                        "video": {"video_path": video_path, "fps": 1, "max_frames": 180}
+                    }, ... {}
+                ]
+            """
             data_type = contents[0]["type"]
             if data_type == "image":
                 image = self.load_images(
@@ -537,35 +572,73 @@ class Videollama3Qwen2Processor(ProcessorMixin):
 
             elif data_type == "video":
                 # TODO: start_time is None?
+                # start_times: List[float] (len: batch_size)
                 start_times = [
                     content["video"].get("start_time", 0.)
                     for content in contents
                 ]
+                # end_times: List[float] (len: batch_size)
                 end_times = [
                     content["video"].get("end_time", float("inf"))
                     for content in contents
                 ]
-
-                load_args = contents[0][data_type]
+                """
+                load_args
+                    {"video_path": video_path, "fps": 1, "max_frames": 180}
+                """
+                load_args = contents[0][data_type]  #
                 start_time, end_time = min(start_times), max(end_times)
                 if start_time > 0:
                     load_args["start_time"] = start_time
                 if end_time < float("inf"):
                     load_args["end_time"] = end_time
+                """
+                images: List[Image.Image]
+                timestamps: List[float]
+                """
                 images, timestamps = self.load_video(**load_args)
-
+                """
+                contents: List[Dict[str, Any]]
+                    [
+                        {
+                            "type": "video",
+                            "video": {"video_path": video_path, "fps": 1, "max_frames": 180}
+                        }, ... {}
+                    ]
+                start_times: List[float] (len: batch_size)
+                end_times: List[float] (len: batch_size)
+                """
                 for content, start_time, end_time in zip(
                         contents, start_times, end_times):
+                    """
+                    content
+                        {
+                            "type": "video",
+                            "video": {"video_path": video_path, "fps": 1, "max_frames": 180}
+                        }
+                    """
                     cur_images, cur_timestamps = [], []
+                    """
+                    cur_images: List[Image.Image]
+                    cur_timestamps: List[float]
+                    """
                     for image, timestamp in zip(images, timestamps):
                         if start_time <= timestamp <= end_time:
                             cur_images.append(image.copy())
                             cur_timestamps.append(timestamp)
 
-                    content[data_type] = cur_images
-                    content["num_frames"] = len(cur_images)
-                    content["timestamps"] = cur_timestamps
-
+                    content[data_type] = cur_images  # List[Image.Image]
+                    content["num_frames"] = len(cur_images)  # int
+                    content["timestamps"] = cur_timestamps  # List[float]
+                    """
+                    content
+                        {
+                            "type": "video",
+                            "video": List[Image.Image],
+                            "num_frames": int,
+                            "timestamps": List[float]
+                        }
+                    """
         return new_conversation
 
     def _gather_multimodal_data(self, conversation: Conversation):

@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('./')
 from videollama3 import disable_torch_init, model_init, mm_infer
 from videollama3.mm_utils import load_video, load_images
@@ -8,36 +9,46 @@ def main():
     disable_torch_init()
 
     modal = "text"
-    conversation = [
-        {
-            "role": "user",
-            "content": "What is the color of bananas?",
-        }
-    ]
+    conversation = [{
+        "role": "user",
+        "content": "What is the color of bananas?",
+    }]
 
     modal = "image"
     frames = load_images("assets/sora.png")[0]
-    conversation = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image"},
-                {"type": "text", "text": "What is the woman wearing?"},
-            ]
-        }
-    ]
+    conversation = [{
+        "role":
+            "user",
+        "content": [
+            {
+                "type": "image"
+            },
+            {
+                "type": "text",
+                "text": "What is the woman wearing?"
+            },
+        ]
+    }]
 
     modal = "video"
-    frames, timestamps = load_video("assets/cat_and_chicken.mp4", fps=1, max_frames=180)
-    conversation = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "video", "timestamps": timestamps, "num_frames": len(frames)},
-                {"type": "text", "text": "What is the cat doing?"},
-            ]
-        }
-    ]
+    frames, timestamps = load_video("assets/cat_and_chicken.mp4",
+                                    fps=1,
+                                    max_frames=180)
+    conversation = [{
+        "role":
+            "user",
+        "content": [
+            {
+                "type": "video",
+                "timestamps": timestamps,
+                "num_frames": len(frames)
+            },
+            {
+                "type": "text",
+                "text": "What is the cat doing?"
+            },
+        ]
+    }]
 
     model_path = "/path/to/your/model"
     model, processor = model_init(model_path)
@@ -49,13 +60,11 @@ def main():
         return_tensors="pt",
     )
 
-    output = mm_infer(
-        inputs,
-        model=model,
-        tokenizer=processor.tokenizer,
-        do_sample=False,
-        modal=modal
-    )
+    output = mm_infer(inputs,
+                      model=model,
+                      tokenizer=processor.tokenizer,
+                      do_sample=False,
+                      modal=modal)
     print(output)
 
 

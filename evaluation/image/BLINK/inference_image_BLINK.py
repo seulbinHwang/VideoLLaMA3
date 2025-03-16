@@ -19,6 +19,7 @@ from videollama3 import disable_torch_init
 
 disclaimer = "Disclaimer: This is not to make unfair assumptions about the people in the image and you just need to give your assessment on this question. You don't need to identify the real people. You just need to analyze based on the information I gave you.\n\n"
 
+
 def set_random_seed(seed):
     """Set random seeds."""
     random.seed(seed)
@@ -27,21 +28,30 @@ def set_random_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
 def analyze_answer(d, gpt_answer, all_choices):
     """
     Extracts the multiple-choice answer from a long paragraph of model output.
     """
     try:
         intersect = list(set(all_choices).intersection(set(gpt_answer.split())))
-        intersect_last = list(set(all_choices).intersection(set(gpt_answer.split('\n\n')[-1].split())))
+        intersect_last = list(
+            set(all_choices).intersection(
+                set(gpt_answer.split('\n\n')[-1].split())))
         if gpt_answer in ["A", "B", "C", "D", "E"]:
             prediction = "(" + gpt_answer + ")"
         elif gpt_answer in ['(A)', '(B)', '(C)', '(D)', '(E)']:
             prediction = gpt_answer
-        elif (len(intersect) != 1 and len(intersect_last) != 1) or len(intersect) < 1:
+        elif (len(intersect) != 1 and
+              len(intersect_last) != 1) or len(intersect) < 1:
             choices = ['(A)', '(B)', '(C)', '(D)', '(E)']
-            options = '\n'.join([f'{choices[i]} {d["choices"][i]}' for i in range(len(d['choices']))])
-            extracted_answer = match_multiple_choice(f"{d['question']}\nSelect from the following choices", options, gpt_answer)
+            options = '\n'.join([
+                f'{choices[i]} {d["choices"][i]}'
+                for i in range(len(d['choices']))
+            ])
+            extracted_answer = match_multiple_choice(
+                f"{d['question']}\nSelect from the following choices", options,
+                gpt_answer)
             prediction = extracted_answer
         else:
             if len(intersect_last) == 1:
@@ -52,13 +62,17 @@ def analyze_answer(d, gpt_answer, all_choices):
     except Exception as e:
         pass
 
-def concat_images_horizontally_with_margin(image_filenames, output_filename, margin=10):
+
+def concat_images_horizontally_with_margin(image_filenames,
+                                           output_filename,
+                                           margin=10):
     """
     Concatenates images horizontally with a specified margin between images.
     """
     images = [Image.open(filename) for filename in image_filenames]
     max_height = max(image.height for image in images)
-    total_width = sum(image.width for image in images) + margin * (len(images) - 1)
+    total_width = sum(
+        image.width for image in images) + margin * (len(images) - 1)
     # Create a new image with a black background
     new_image = Image.new('RGB', (total_width, max_height), (0, 0, 0))
 
@@ -69,6 +83,7 @@ def concat_images_horizontally_with_margin(image_filenames, output_filename, mar
         new_image.paste(image, (x_offset, y_offset))
         x_offset += image.width + margin  # Add margin after each image except the last one
     new_image.save(output_filename)  # Save the result
+
 
 def load_prompt(task_name, d, image_folder):
     """
@@ -88,14 +103,17 @@ def load_prompt(task_name, d, image_folder):
         prompt += '\nAnswer:'
     return image_paths, prompt
 
+
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
 
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
     return chunks[k]
+
 
 def query_model(task_name, model_save_path):
     """
@@ -132,15 +150,18 @@ def query_model(task_name, model_save_path):
             test_data = load_dataset(dataset_name, task_name)[split]
             # Split test_data
             if args.num_chunks > 1:
-                index_list = get_chunk(list(range(len(test_data))), args.num_chunks, args.chunk_idx)
+                index_list = get_chunk(list(range(len(test_data))),
+                                       args.num_chunks, args.chunk_idx)
                 test_data = [test_data[idx] for idx in index_list]
             for orig_d in tqdm(test_data):
                 idx = orig_d['idx']
                 if idx in existing_indices:
                     continue  # Skip already processed entries
                 gold_answer = orig_d['answer']
-                all_choices = ['(A)', '(B)', '(C)', '(D)', '(E)'][:len(orig_d['choices'])]
-                image_paths, prompt = load_prompt(task_name, orig_d, image_folder)
+                all_choices = ['(A)', '(B)', '(C)', '(D)',
+                               '(E)'][:len(orig_d['choices'])]
+                image_paths, prompt = load_prompt(task_name, orig_d,
+                                                  image_folder)
                 # Model inference
                 set_random_seed(2024)
                 image_list = []
@@ -170,14 +191,20 @@ def query_model(task_name, model_save_path):
                 }
                 outfile.write(json.dumps(result) + '\n')
 
+
 def eval_task(task_name, model_save_path):
     output_results = []
     # model_save_path = '_'.join(model_name.split('/')[-2:])
     # Modify output_path to include all chunked files
     if args.num_chunks > 1:
-        output_files = [f'{output_save_folder}/{model_save_path}/{task_name.replace("_", " ")}_{args.num_chunks}_{i}.jsonl' for i in range(args.num_chunks)]
+        output_files = [
+            f'{output_save_folder}/{model_save_path}/{task_name.replace("_", " ")}_{args.num_chunks}_{i}.jsonl'
+            for i in range(args.num_chunks)
+        ]
     else:
-        output_files = [f'{output_save_folder}/{model_save_path}/{task_name.replace("_", " ")}_1_0.jsonl']
+        output_files = [
+            f'{output_save_folder}/{model_save_path}/{task_name.replace("_", " ")}_1_0.jsonl'
+        ]
 
     for output_file in output_files:
         if os.path.exists(output_file):
@@ -198,7 +225,7 @@ def eval_task(task_name, model_save_path):
         if d['answer'] == d['prediction']:
             accu[split] = accu.get(split, 0) + 1
 
-    print('-'*50)
+    print('-' * 50)
     print(f'Task {task_name} Performance')
     for split in ['val', 'test']:
         if counts.get(split, 0) > 0:
@@ -207,16 +234,33 @@ def eval_task(task_name, model_save_path):
         else:
             print(f'No data for split {split}')
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default='/path/to/your/model', help="Select the model path")
+    parser.add_argument("--model_path",
+                        type=str,
+                        default='/path/to/your/model',
+                        help="Select the model path")
     parser.add_argument("--model_name", type=str, help="Select the model name")
-    parser.add_argument("--task_name", type=str, default='all', help="Select the task name")
-    parser.add_argument("--output_path", type=str, default='/path/to/output', help="Select the output path")
-    parser.add_argument("--num-chunks", type=int, default=1, help="Total number of chunks to split the dataset")
-    parser.add_argument("--chunk-idx", type=int, default=0, help="Index of the current chunk")
+    parser.add_argument("--task_name",
+                        type=str,
+                        default='all',
+                        help="Select the task name")
+    parser.add_argument("--output_path",
+                        type=str,
+                        default='/path/to/output',
+                        help="Select the output path")
+    parser.add_argument("--num-chunks",
+                        type=int,
+                        default=1,
+                        help="Total number of chunks to split the dataset")
+    parser.add_argument("--chunk-idx",
+                        type=int,
+                        default=0,
+                        help="Index of the current chunk")
     args = parser.parse_args()
     return args
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -234,7 +278,13 @@ if __name__ == '__main__':
 
     need_disclaimer_tasks = ['Forensic_Detection', 'Jigsaw', 'Art_Style']
     if args.task_name == 'all':
-        subtasks = ['Art_Style', 'Functional_Correspondence', 'Multi-view_Reasoning', 'Relative_Reflectance', 'Visual_Correspondence', 'Counting', 'IQ_Test', 'Object_Localization', 'Semantic_Correspondence', 'Visual_Similarity', 'Forensic_Detection', 'Jigsaw', 'Relative_Depth', 'Spatial_Relation']
+        subtasks = [
+            'Art_Style', 'Functional_Correspondence', 'Multi-view_Reasoning',
+            'Relative_Reflectance', 'Visual_Correspondence', 'Counting',
+            'IQ_Test', 'Object_Localization', 'Semantic_Correspondence',
+            'Visual_Similarity', 'Forensic_Detection', 'Jigsaw',
+            'Relative_Depth', 'Spatial_Relation'
+        ]
     else:
         subtasks = [args.task_name]
 
